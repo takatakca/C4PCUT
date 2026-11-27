@@ -147,6 +147,13 @@ class Handler(BaseHTTPRequestHandler):
         parts = path.split("/")
         if len(parts) == 4 and parts[1:3] == ["api", "source"] and parts[3] in self.jobs:
             return self.file(self.jobs[parts[3]]["folder"] / "source.media", "application/octet-stream")
+        if len(parts) == 4 and parts[1:3] == ["api", "soundtrack"] and parts[3] in self.jobs:
+            if self.policy and "music" not in self.policy.features:
+                return self.reply({"error":"Feature unavailable in this workspace"},403)
+            path=self.jobs[parts[3]]["folder"] / "music.wav"
+            if path.is_symlink() or not path.is_file():
+                return self.reply({"error":"Not found"},404)
+            return self.file(path,"audio/wav")
         if len(parts) == 4 and parts[1:3] == ["api", "export"] and parts[3] in self.jobs:
             return self.file(self.jobs[parts[3]]["folder"] / "export.mp4", "video/mp4", True)
         if len(parts) == 4 and parts[1:3] == ["api", "captions"] and parts[3] in self.jobs:

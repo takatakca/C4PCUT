@@ -7,12 +7,54 @@ let musicData=null, sourceBeats=null, musicName="", directorPlan=null;
 let account=null, accountRefreshing=false, accountInvalid=false, projectCount=null, usageState=null;
 const canFeature=name=>!!account&&!accountInvalid&&PlanUI.feature(account.capabilities,name);
 let clipBatch=null, clipCandidates=[], clipDownloads=new Map();
-let sequence=null, sequenceFrame=0, sequenceSeek=null, sceneOrder=[];
+let sequence=null, sequenceFrame=0, sequenceSeek=null, monitorURL=null, monitorPending=false, monitorGeneration=0;
+function clearMonitorMusic(){
+  monitorGeneration++;
+  const audio=$("monitor-audio");audio.pause();audio.removeAttribute("src");audio.load();
+  if(monitorURL)URL.revokeObjectURL(monitorURL);monitorURL=null;monitorPending=false;
+  $("monitor-mix").textContent="No soundtrack loaded";
+}
+async function loadMonitorMusic(){
+  clearMonitorMusic();
+  if(!job||!musicData||!canFeature("music"))return;
+  const id=job.id,generation=monitorGeneration;
+  $("monitor-mix").textContent="Loading normalized soundtrack…";
+  try{
+    const response=await fetch("/api/soundtrack/"+id,{cache:"no-store"});
+    if(!response.ok)throw new Error("Soundtrack unavailable");
+    const blob=await response.blob();
+    if(job?.id!==id||generation!==monitorGeneration||!canFeature("music"))return;
+    // Normalized stereo 48kHz PCM, at most 600 seconds plus WAV header.
+    if(!blob.size||blob.size>116000000)throw new Error("Soundtrack too large");
+    monitorURL=URL.createObjectURL(blob);$("monitor-audio").src=monitorURL;
+    $("monitor-mix").textContent="Soundtrack ready · source-time alignment";
+  }catch(e){if(generation===monitorGeneration)$("monitor-mix").textContent="Soundtrack preview unavailable; export unchanged";}
+}
+function pauseMonitor(){ $("monitor-audio").pause(); }
+function syncMonitor(force=false){
+  const video=$("video"), audio=$("monitor-audio"), state=sequence;
+  if(!state)return;
+  const gain=Number($("source-gain").value);
+  if(video.volume!==gain)video.volume=gain;
+  if(!state.mix||!canFeature("music")||!monitorURL||video.paused||video.seeking||sequenceSeek!==null||video.readyState<3){pauseMonitor();return;}
+  audio.volume=Number($("music-gain").value);audio.muted=video.muted;audio.playbackRate=video.playbackRate;
+  if(audio.readyState<1||!Number.isFinite(audio.duration)||video.currentTime>=audio.duration){pauseMonitor();return;}
+  if(force||Math.abs(audio.currentTime-video.currentTime)>.15)audio.currentTime=video.currentTime;
+  if(audio.paused&&!monitorPending){
+    const generation=monitorGeneration;
+    monitorPending=true;audio.play().then(()=>{if(generation===monitorGeneration&&(sequence!==state||video.paused||video.seeking||sequenceSeek!==null))audio.pause();}).catch(error=>{if(generation===monitorGeneration&&sequence===state&&error.name!=="AbortError"){state.mix=false;$("monitor-mix").textContent="Music playback unavailable; source audio continues";}}).finally(()=>{if(generation===monitorGeneration)monitorPending=false;});
+  }
+}
+$("monitor-audio").addEventListener("loadedmetadata",()=>{if(sequence)syncMonitor(true);});
+$("video").addEventListener("waiting",pauseMonitor);
+$("video").addEventListener("ratechange",()=>syncMonitor(true));
+$("video").addEventListener("volumechange",()=>{if(sequence)$("monitor-audio").muted=$("video").muted;});
+let sceneOrder=[];
 function selectedOrder(){return SequencePreview.ordered(clips,selected,sceneOrder);}
 function moveScene(from,to){
   const order=selectedOrder(),i=order.indexOf(from),j=order.indexOf(to);
   if(busy||i<0||j<0||i===j)return;
-  remember();order.splice(i,1);order.splice(j,0,from);sceneOrder=order;hideExports();drawTimeline();
+  remember();order.splice(i,1);order.splice(j,0,from);sceneOrder=order;hideExports();showSequencePosition(0,sequencePlan().total);drawTimeline();
   log("Scene "+(from+1)+" moved to position "+(j+1));
 }
 function drawSceneOrder(){
@@ -30,7 +72,7 @@ function drawSceneOrder(){
     list.append(card);
   });
 }
-$("reset-order").addEventListener("click",()=>{if(busy)return;const order=selectedOrder();if(order.every((id,i)=>i===0||id>order[i-1]))return;remember();sceneOrder=[];hideExports();drawTimeline();});
+$("reset-order").addEventListener("click",()=>{if(busy)return;const order=selectedOrder();if(order.every((id,i)=>i===0||id>order[i-1]))return;remember();sceneOrder=[];hideExports();showSequencePosition(0,sequencePlan().total);drawTimeline();});
 function sequencePlan(){return SequencePreview.build(clips,edits,selected,selectedOrder());}
 function showSequencePosition(value,total){
   const bar=$("sequence-position");bar.max=String(total);bar.value=String(Math.max(0,Math.min(total,value)));
@@ -39,15 +81,16 @@ function showSequencePosition(value,total){
 function stopSequence(completed=false){
   const prior=sequence;sequence=null;sequenceSeek=null;
   if(sequenceFrame)cancelAnimationFrame(sequenceFrame);sequenceFrame=0;
-  if(prior){$("video").pause();if(completed)showSequencePosition(prior.plan.total,prior.plan.total);}
+  pauseMonitor();
+  if(prior){$("video").pause();$("video").volume=prior.previousVolume;if(completed)showSequencePosition(prior.plan.total,prior.plan.total);}
   $("stop-sequence").disabled=true;
-  $("sequence-note").textContent=completed?"Sequence complete · source audio only":"Source audio only · approximate cuts";
+  $("sequence-note").textContent=completed?"Sequence complete · approximate preview":"Approximate cuts and audio preview";
 }
 function queueSequenceFrame(){if(sequence&&!sequenceFrame)sequenceFrame=requestAnimationFrame(sequenceTick);}
 function seekSequence(time){
   const video=$("video");
   if(Math.abs(video.currentTime-time)<.001&&!video.seeking){sequenceSeek=null;return;}
-  sequenceSeek=time;video.currentTime=time;
+  pauseMonitor();sequenceSeek=time;video.currentTime=time;
 }
 async function playSequenceFrom(time){
   const video=$("video"),plan=sequencePlan();
@@ -55,18 +98,19 @@ async function playSequenceFrom(time){
   stopSequence();
   const target=SequencePreview.locate(plan,time>=plan.total?0:time);
   if(!target)return;
-  const state={plan,index:target.index};sequence=state;
+  const state={plan,index:target.index,mix:!!(monitorURL&&$("use-music").checked&&canFeature("music")),previousVolume:video.volume};sequence=state;
   $("stop-sequence").disabled=false;
-  $("sequence-note").textContent="Playing selected trims · source audio only";
+  $("sequence-note").textContent=state.mix?"Playing selected trims · approximate audio mix":"Playing selected trims · source audio";
+  video.volume=Number($("source-gain").value);
   showSequencePosition(target.output,plan.total);
   seekSequence(target.source);
-  try{await video.play();if(sequence===state)queueSequenceFrame();}
+  try{await video.play();if(sequence===state){syncMonitor(true);queueSequenceFrame();}}
   catch(e){if(sequence===state){stopSequence();log("Sequence playback unavailable",true);}}
 }
 function sequenceTick(){
   sequenceFrame=0;
   const state=sequence,video=$("video");if(!state)return;
-  if(video.seeking||sequenceSeek!==null){queueSequenceFrame();return;}
+  if(video.seeking||sequenceSeek!==null){pauseMonitor();queueSequenceFrame();return;}
   const range=state.plan.ranges[state.index],time=video.currentTime;
   if(time>=range.end||video.ended){
     if(state.index+1>=state.plan.ranges.length){stopSequence(true);return;}
@@ -74,7 +118,7 @@ function sequenceTick(){
     seekSequence(next.start);
     if(video.paused)video.play().catch(()=>{if(sequence===state)stopSequence();});
   }else if(time<range.start-.05){stopSequence();return;}
-  else showSequencePosition(SequencePreview.position(range,time),state.plan.total);
+  else {showSequencePosition(SequencePreview.position(range,time),state.plan.total);syncMonitor();}
   queueSequenceFrame();
 }
 $("play-sequence").addEventListener("click",()=>playSequenceFrom(Number($("sequence-position").value)));
@@ -87,7 +131,7 @@ $("video").addEventListener("seeking",()=>{
   if(sequence&&sequenceSeek===null)stopSequence();
 });
 $("video").addEventListener("seeked",()=>{
-  if(sequence&&sequenceSeek!==null){if(Math.abs($("video").currentTime-sequenceSeek)>.15){stopSequence();return;}sequenceSeek=null;queueSequenceFrame();}
+  if(sequence&&sequenceSeek!==null){if(Math.abs($("video").currentTime-sequenceSeek)>.15){stopSequence();return;}sequenceSeek=null;syncMonitor(true);queueSequenceFrame();}
 });
 $("video").addEventListener("pause",()=>{if(sequence&&!$("video").ended&&sequenceSeek===null)stopSequence();});
 $("video").addEventListener("ended",()=>{if(sequence)queueSequenceFrame();});
@@ -123,7 +167,7 @@ async function renderClip(c){
 }
 function clearDirector(){directorPlan=null;$("director-result").textContent="No pending plan";}
 function beatData(){return $("use-music").checked?musicData:sourceBeats;}
-function resetMusic(){musicData=null;sourceBeats=null;musicName="";$("use-music").checked=false;$("music-gain").value=.35;$("source-gain").value=1;}
+function resetMusic(){clearMonitorMusic();musicData=null;sourceBeats=null;musicName="";$("use-music").checked=false;$("music-gain").value=.35;$("source-gain").value=1;}
 function musicStatus(){const data=beatData();$("beat-info").textContent=data?data.beats.length+" detected onsets"+(data.estimated_bpm?" · ~"+data.estimated_bpm+" BPM estimate":""):"No beat analysis";}
 function snapshot(){return {selected:[...selected],order:selectedOrder(),edits:JSON.parse(JSON.stringify(edits)),cues:JSON.parse(JSON.stringify(cues))};}
 function hideExports(){stopSequence();$("download").hidden=true;$("download-srt").hidden=true;}
@@ -342,10 +386,10 @@ $("apply-caption").addEventListener("click",()=>{if(busy||activeCue<0)return;con
 $("music-file").addEventListener("change",()=>{const file=$("music-file").files[0];$("music-file").value="";if(!file)return;action(async()=>{
   if(file.size>64*1024*1024)throw new Error("Maximum music upload is 64 MB");
   log("Decoding music and detecting audio onsets…");
-  const result=await request("/api/music/import/"+job.id,file,true);musicData=result;musicName=file.name;$("use-music").checked=true;hideExports();drawTimeline();log(result.beats.length+" music onsets detected");
+  const result=await request("/api/music/import/"+job.id,file,true);musicData=result;musicName=file.name;$("use-music").checked=true;await loadMonitorMusic();hideExports();drawTimeline();log(result.beats.length+" music onsets detected");
 });});
 $("use-music").addEventListener("change",()=>{hideExports();drawTimeline();});
-for(const id of ["music-gain","source-gain"])$(id).addEventListener("input",hideExports);
+for(const id of ["music-gain","source-gain"])$(id).addEventListener("input",()=>{if(sequence){$("download").hidden=true;$("download-srt").hidden=true;syncMonitor();}else hideExports();});
 $("detect-beats").addEventListener("click",()=>action(async()=>{
   log("Analyzing audio transients…");const use_music=$("use-music").checked;
   const result=await request("/api/music/analyze",{id:job.id,use_music});if(use_music)musicData=result;else sourceBeats=result;
@@ -441,7 +485,7 @@ $("open-project").addEventListener("click",()=>{
     if(objectURL)URL.revokeObjectURL(objectURL);
     objectURL=URL.createObjectURL(new Blob([raw],{type:sourceMime}));
     showSequencePosition(0,0);job=result;clearDirector();clearClipper();resetMusic();clips=result.clips;visuals.clear();history=[];future=[];current=-1;activeCue=-1;
-    const s=result.state;setStudioBrief(s.studio_brief||null);$("director-prompt").value=(result.director_prompt||"").slice(0,1500);selected=new Set(s.selected);sceneOrder=s.order||[];edits=s.edits;cues=s.cues;musicData=result.music;musicName="Saved soundtrack";
+    const s=result.state;setStudioBrief(s.studio_brief||null);$("director-prompt").value=(result.director_prompt||"").slice(0,1500);selected=new Set(s.selected);sceneOrder=s.order||[];edits=s.edits;cues=s.cues;musicData=result.music;musicName="Saved soundtrack";await loadMonitorMusic();
     $("use-music").checked=s.use_music;$("music-gain").value=s.music_gain;$("source-gain").value=s.source_gain;$("caption-mode").value=s.caption_mode;$("export-preset").value=s.preset;$("export-framing").value=s.framing;$("export-quality").value=s.quality||"standard";
     $("project-name").value=s.name;$("project").textContent=s.name;$("video").src=objectURL;$("placeholder").hidden=true;$("format").textContent=job.width+" × "+job.height;
     refreshCaption();hideExports();drawTimeline();
@@ -457,7 +501,7 @@ $("delete-project").addEventListener("click",()=>{
     await request("/api/projects/delete",{id});
     if(job?.id===id){
       if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;$("video").removeAttribute("src");$("video").load();
-      job=null;setStudioBrief(null);clearDirector();clearClipper();resetMusic();clips=[];selected.clear();edits={};cues=[];visuals.clear();history=[];future=[];current=-1;activeCue=-1;refreshCaption();hideExports();
+      job=null;sceneOrder=[];setStudioBrief(null);clearDirector();clearClipper();resetMusic();clips=[];selected.clear();sceneOrder=[];edits={};cues=[];visuals.clear();history=[];future=[];current=-1;activeCue=-1;refreshCaption();hideExports();
       $("placeholder").hidden=false;$("project").textContent="Untitled sequence";$("project-name").value="";$("format").textContent="NO MEDIA";
     }
     await refreshProjects();log("Project deleted");
@@ -516,6 +560,7 @@ async function refreshAccount(initial=false){
       accountInvalid=true;token=null;window.location.reload();return;
     }
     account=data;token=data.token;
+    if(!canFeature("music"))clearMonitorMusic();
     $("account-plan").textContent=data.plan?"C4PCUT "+data.plan.toUpperCase():data.workspace?"Private workspace":"Local editor";
     const p=data.capabilities;
     $("account-policy").textContent=p?"Max edge "+p.max_output_edge+" px · "+p.max_render_seconds+" s/export · "+p.max_projects+" projects · "+(p.qualities.join(", ")||"no export quality"):"No additional workspace capability restrictions";

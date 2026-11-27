@@ -115,5 +115,10 @@
 ## Edited sequence monitor
 - PR #17 passed CI and merged. Selected-trim playback, edited-time mapping, automatic gaps and stop/scrub controls implemented. New tests pending CI. Approximate source audio/visuals only, not exact FFmpeg playback, no live deployment.
 
-## Timeline order
-- Explicit output scene ordering, persisted projects and FFmpeg/preview integration implemented on separate branch while PR #19 CI runs. Added actual reversed-color export test and caption remap test. CI pending; browser drag/drop not yet exercised. Full multi-track overlap, live TAKATAK integration and deployment remain open.
+## Audio monitor
+- PR #18 passed CI and merged. Private normalized soundtrack playback, gain and source-time synchronization implemented; tests pending. Browser audio mix is approximate and dependent on browser autoplay/volume support. No new payment or production deployment.
+
+- Audio CI 45944613873: standard tests pass, Chromium blocked by test-side unsafe-eval. Corrected locator assertions without relaxing CSP; hardened stale audio callbacks. Browser playback still pending exact-head validation.
+
+## Timeline order and audio integration
+- PR #19 merged after successful CI; independent Timeline PR #20 CI also green. Explicit scene ordering and project persistence integrated with source-time audio preview. Combined browser reorder test added. Latest combined CI required before main merge. Full overlapping multi-track editing, live TAKATAK integration, billing and worker isolation/deployment remain outstanding.
