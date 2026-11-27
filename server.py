@@ -1,0 +1,234 @@
+"""Single-user localhost prototype. Not a production HTTP service."""
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+import json
+import secrets
+import shutil
+import tempfile
+import threading
+from urllib.parse import urlsplit
+import engine
+import captions
+import music
+import director
+import os
+import sys
+
+ROOT = Path(__file__).resolve().parent / "web"
+LOCK = threading.Lock()
+JOBS = {}
+TOKEN = secrets.token_urlsafe(32)
+HOST = "127.0.0.1:8765"
+
+class Handler(BaseHTTPRequestHandler):
+    def reply(self, obj, status=200):
+        data = json.dumps(obj).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def file(self, path, mime, download=False):
+        if not path.is_file():
+            return self.reply({"error": "Not found"}, 404)
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(path.stat().st_size))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "no-store")
+        if download:
+            self.send_header("Content-Disposition", 'attachment; filename="c4pcut-export.mp4"')
+        self.end_headers()
+        with path.open("rb") as f:
+            shutil.copyfileobj(f, self.wfile)
+
+    def valid_host(self):
+        return self.headers.get("Host") in {HOST, "localhost:8765"}
+
+    def do_GET(self):
+        if not self.valid_host():
+            return self.reply({"error": "Invalid host"}, 403)
+        path = urlsplit(self.path).path
+        if path == "/api/session":
+            return self.reply({"token": TOKEN})
+        static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
+        if path in static:
+            name, mime = static[path]
+            return self.file(ROOT / name, mime)
+        parts = path.split("/")
+        if len(parts) == 4 and parts[1:3] == ["api", "export"] and parts[3] in JOBS:
+            return self.file(JOBS[parts[3]]["folder"] / "export.mp4", "video/mp4", True)
+        if len(parts) == 4 and parts[1:3] == ["api", "captions"] and parts[3] in JOBS:
+            return self.file(JOBS[parts[3]]["folder"] / "export.srt", "application/x-subrip")
+        if len(parts) == 5 and parts[1:3] == ["api", "thumbnail"] and parts[3] in JOBS:
+            name = parts[4]
+            if name.endswith(".jpg") and name[:-4].isascii() and name[:-4].isdigit() and len(name) <= 6:
+                return self.file(JOBS[parts[3]]["folder"] / "visuals" / name, "image/jpeg")
+        return self.reply({"error": "Not found"}, 404)
+
+    def do_POST(self):
+        if not self.valid_host() or self.headers.get("X-C4PCUT-Token") != TOKEN:
+            return self.reply({"error": "Forbidden"}, 403)
+        if not LOCK.acquire(blocking=False):
+            return self.reply({"error": "Another media operation is running"}, 409)
+        try:
+            path = urlsplit(self.path).path
+            size = int(self.headers.get("Content-Length", "0"))
+            self.connection.settimeout(60)
+            if path == "/api/import":
+                if not 0 < size <= engine.MAX_BYTES or len(JOBS) >= 8:
+                    raise ValueError("Maximum 250 MB per video and 8 imports per session")
+                job_id = secrets.token_hex(16)
+                folder = Path(self.server.storage) / job_id
+                folder.mkdir()
+                source = folder / "source.media"
+                try:
+                    with source.open("wb") as f:
+                        remaining = size
+                        while remaining:
+                            chunk = self.rfile.read(min(remaining, 1024 * 1024))
+                            if not chunk:
+                                raise ValueError("Incomplete upload")
+                            f.write(chunk)
+                            remaining -= len(chunk)
+                    metadata = engine.probe(source)
+                except Exception:
+                    shutil.rmtree(folder, ignore_errors=True)
+                    raise
+                JOBS[job_id] = {"folder": folder, "metadata": metadata}
+                return self.reply({"id": job_id, **metadata})
+            if path.startswith("/api/music/import/"):
+                job_id = path.split("/")[-1]
+                job = JOBS[job_id]
+                if not 0 < size <= music.MAX_MUSIC_BYTES:
+                    raise ValueError("Maximum music upload is 64 MB")
+                raw = job["folder"] / "music-upload.media"
+                # A separate immutable version keeps previous state safe if
+                # normalization fails; only one music track per active job.
+                temp_music = job["folder"] / "music-pending.wav"
+                try:
+                    with raw.open("wb") as out:
+                        remaining = size
+                        while remaining:
+                            chunk = self.rfile.read(min(remaining,1024*1024))
+                            if not chunk:
+                                raise ValueError("Incomplete music upload")
+                            out.write(chunk)
+                            remaining -= len(chunk)
+                    duration = job["metadata"]["duration"]
+                    music.normalize(raw, temp_music, duration)
+                    data = music.analyze(temp_music, duration)
+                    temp_music.replace(job["folder"] / "music.wav")
+                    job["music_analysis"] = data
+                    return self.reply(data)
+                finally:
+                    raw.unlink(missing_ok=True)
+                    temp_music.unlink(missing_ok=True)
+            if not 0 < size <= 262144:
+                raise ValueError("Invalid request size")
+            payload = json.loads(self.rfile.read(size))
+            job_id = payload["id"]
+            job = JOBS[job_id]
+            source = job["folder"] / "source.media"
+            if path == "/api/analyze":
+                job["clips"] = engine.analyze(source, job["metadata"])
+                return self.reply({"clips": job["clips"]})
+            if path == "/api/visuals":
+                visuals = engine.build_visuals(source, job["folder"] / "visuals", job["clips"], job["metadata"])
+                for item in visuals:
+                    item["thumbnail"] = f"/api/thumbnail/{job_id}/{item['id']}.jpg"
+                return self.reply({"visuals": visuals})
+            if path == "/api/captions/import":
+                return self.reply({"cues": captions.parse_srt(payload["srt"], job["metadata"]["duration"])})
+            if path == "/api/transcribe":
+                model = os.environ.get("C4PCUT_WHISPER_MODEL")
+                if not model or not Path(model).is_dir():
+                    return self.reply({"error": "Configure C4PCUT_WHISPER_MODEL with a local Faster Whisper model directory"}, 503)
+                if not job["metadata"]["audio"]:
+                    return self.reply({"error": "No source audio to transcribe"}, 400)
+                result = engine.run([sys.executable, str(Path(__file__).resolve().parent / "transcribe.py"), str(source), model], 600)
+                cues = json.loads(result.stdout)
+                duration = job["metadata"]["duration"]
+                cues = [{**c, "end": min(c["end"], duration)} for c in cues if c["start"] < duration]
+                return self.reply({"cues": captions.validate(cues, duration)})
+            if path == "/api/music/analyze":
+                use_music = payload.get("use_music", False)
+                if type(use_music) is not bool:
+                    raise ValueError("Invalid music selection")
+                if use_music:
+                    return self.reply(job["music_analysis"])
+                if not job["metadata"]["audio"]:
+                    return self.reply({"error": "No source audio to analyze"}, 400)
+                data = music.analyze(source, job["metadata"]["duration"])
+                job["source_music_analysis"] = data
+                return self.reply(data)
+            if path == "/api/music/cuts":
+                use_music = payload.get("use_music", False)
+                if type(use_music) is not bool:
+                    raise ValueError("Invalid music selection")
+                data = job["music_analysis" if use_music else "source_music_analysis"]
+                if not data["beats"]:
+                    return self.reply({"error": "No usable audio onsets found"}, 400)
+                job["clips"] = music.beat_cuts(job["metadata"]["duration"], data["beats"], payload.get("interval", 2))
+                return self.reply({"clips": job["clips"]})
+            if path == "/api/director":
+                cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
+                use_music = payload.get("use_music", False)
+                if type(use_music) is not bool:
+                    raise ValueError("Invalid music selection")
+                analysis = job.get("music_analysis" if use_music else "source_music_analysis", {})
+                result = director.plan(payload.get("prompt"), payload.get("target"), payload.get("style"),
+                                       payload.get("provider"), job["clips"], cues, analysis.get("beats", []))
+                return self.reply(result)
+            if path == "/api/render":
+                selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}))
+                cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
+                mapped = captions.remap(cues, selected)
+                caption_mode = captions.validate_mode(payload.get("caption_mode", "soft"))
+                use_music = payload.get("use_music", False)
+                if type(use_music) is not bool:
+                    raise ValueError("Invalid music selection")
+                music_path = job["folder"] / "music.wav" if use_music else None
+                if music_path is not None and not music_path.is_file():
+                    raise ValueError("Import music first")
+                music_gain = music.validate_gain(payload.get("music_gain", .35))
+                source_gain = music.validate_gain(payload.get("source_gain", 1))
+                temp = job["folder"] / "rendering.mp4"
+                subtitle = job["folder"] / "rendering.srt"
+                exported_srt = job["folder"] / "export.srt"
+                try:
+                    if mapped:
+                        subtitle.write_text(captions.to_srt(mapped), encoding="utf-8")
+                    burn = captions.to_ass(mapped, caption_mode) if mapped and caption_mode != "soft" else None
+                    engine.render(source, temp, selected, job["metadata"]["audio"], subtitle if mapped and caption_mode == "soft" else None, music_path, music_gain, source_gain, burn_ass=burn)
+                    temp.replace(job["folder"] / "export.mp4")
+                    if mapped:
+                        subtitle.replace(exported_srt)
+                    else:
+                        exported_srt.unlink(missing_ok=True)
+                finally:
+                    temp.unlink(missing_ok=True)
+                    subtitle.unlink(missing_ok=True)
+                return self.reply({"url": "/api/export/" + job_id, "captions_url": "/api/captions/" + job_id if mapped else None})
+            return self.reply({"error": "Not found"}, 404)
+        except (ValueError, KeyError, TypeError):
+            return self.reply({"error": "Invalid input or unsupported media"}, 400)
+        except Exception as exc:
+            self.log_error("Media operation failed: %s", type(exc).__name__)
+            return self.reply({"error": "Media operation failed; check server logs and FFmpeg installation"}, 500)
+        finally:
+            LOCK.release()
+
+if __name__ == "__main__":
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        raise SystemExit("Install FFmpeg and ffprobe first")
+    with tempfile.TemporaryDirectory(prefix="c4pcut-") as storage:
+        with ThreadingHTTPServer(("127.0.0.1", 8765), Handler) as server:
+            server.storage = storage
+            print("C4PCUT: http://" + HOST, flush=True)
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt:
+                pass
