@@ -63,6 +63,16 @@ class Handler(BaseHTTPRequestHandler):
                 self.ledger=workspace.ledger
                 self.csrf_token=workspace.token
                 self.policy=workspace.policy
+                self.plan=None
+                self.request_limit=None
+                if gateway is not None:
+                    profiles=getattr(self.server,"plan_profiles",{})
+                    profile=profiles.get(principal.plan)
+                    if profile is None:
+                        return self.reply_denied()
+                    self.plan=principal.plan
+                    self.policy=capabilities.intersect(profile.policy,workspace.policy)
+                    self.request_limit=profile.monthly_render_seconds
                 return True
         elif owner_auth.authorized(self.headers.get("Authorization"),getattr(self.server,"owner_digest",None)):
             self.scope=None
@@ -71,7 +81,12 @@ class Handler(BaseHTTPRequestHandler):
             self.ledger=getattr(self.server,"ledger",None)
             self.csrf_token=TOKEN
             self.policy=None
+            self.plan=None
+            self.request_limit=None
             return True
+        return self.reply_denied()
+
+    def reply_denied(self):
         data=b'{"error":"Private editor authentication required"}'
         self.send_response(401)
         if getattr(self.server,"studio_gateway",None) is None:
@@ -122,9 +137,9 @@ class Handler(BaseHTTPRequestHandler):
         if getattr(self,"gateway_principal",None) is not None and (self.headers.get("Transfer-Encoding") is not None or self.headers.get_all("Content-Length",[]) not in ([],["0"])):
             return self.reply({"error":"Unexpected GET body"},400)
         if path == "/api/usage":
-            return self.reply(self.ledger.summary() if self.ledger else {"enabled":False})
+            return self.reply(self.ledger.summary(self.request_limit) if self.ledger else {"enabled":False})
         if path == "/api/session":
-            return self.reply({"token": self.csrf_token, "workspace": self.scope, "capabilities":self.policy.public() if self.policy else None})
+            return self.reply({"token": self.csrf_token, "workspace": self.scope, "plan":self.plan, "capabilities":self.policy.public() if self.policy else None})
         static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
         if path in static:
             name, mime = static[path]
@@ -407,7 +422,7 @@ class Handler(BaseHTTPRequestHandler):
                 if self.policy:
                     self.policy.render(preset,framing,quality,duration,job["metadata"],caption_mode,use_music)
                 ledger=self.ledger
-                usage_id=ledger.reserve(job_id,"clipper",duration) if ledger else None
+                usage_id=ledger.reserve(job_id,"clipper",duration,self.request_limit) if ledger else None
                 outcome="failed"
                 folder = job["folder"] / "clips"
                 temp, subtitle = folder / "pending.mp4", folder / "pending.srt"
@@ -469,7 +484,7 @@ class Handler(BaseHTTPRequestHandler):
                         temp.unlink(missing_ok=True)
                         subtitle.unlink(missing_ok=True)
                 ledger=self.ledger
-                usage_id=ledger.reserve(job_id,"main",sum(c["end"]-c["start"] for c in selected)) if ledger else None
+                usage_id=ledger.reserve(job_id,"main",duration,self.request_limit) if ledger else None
                 try:
                     ident=RENDERS.submit(job_id,work,on_finish=(lambda status:ledger.finish(usage_id,status)) if ledger else None,scope=self.scope)
                 except Exception:
@@ -502,6 +517,9 @@ if __name__ == "__main__":
     config=os.environ.get("C4PCUT_WORKSPACES_FILE")
     gateway_config=os.environ.get("C4PCUT_GATEWAY_MAPPING_FILE")
     gateway_key=os.environ.get("C4PCUT_GATEWAY_KEY_FILE")
+    profile_file=os.environ.get("C4PCUT_PLAN_PROFILES_FILE")
+    if (gateway_config or gateway_key or profile_file) and not (gateway_config and gateway_key and config and profile_file):
+        raise SystemExit("Gateway mode requires explicit plan profiles, mapping, key and workspaces")
     if (gateway_config or gateway_key) and not (gateway_config and gateway_key and config):
         raise SystemExit("Gateway mode requires mapping, key file and workspace mode")
     if config and digest is not None:
@@ -523,6 +541,12 @@ if __name__ == "__main__":
                 if config and limit is not None:
                     raise ValueError("Set quotas in workspace configuration, not global environment")
                 server.workspaces=workspaces.load(config,storage) if config else None
+                server.plan_profiles=None
+                if profile_file:
+                    path=Path(profile_file)
+                    if not path.is_file() or path.stat().st_size>32768:
+                        raise ValueError("Invalid plan profile file")
+                    server.plan_profiles=capabilities.parse_profiles(json.loads(path.read_text(encoding="utf-8")))
                 server.studio_gateway=studio_gateway.load(gateway_config,gateway_key,server.workspaces,storage) if gateway_config else None
                 server.ledger=None if config else usage.Ledger(storage,limit)
             except ValueError as exc:

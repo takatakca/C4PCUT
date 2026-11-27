@@ -12,3 +12,5 @@ Read-only V1 commercial catalog preflight: see docs/V1_CATALOG_HANDOFF.md. Propo
 
 ## Configurable private capability limits
 Workspace operators may explicitly set resource/feature policies; no commercial mapping to Free, Standard or Pro is assumed. Limits include longest output edge (including original), requested render seconds, project count, quality modes, transcription, Ollama, clipper, music, animated captions, and Studio pack import. Both render paths validate output capabilities before reserving quota. Existing local monthly quotas remain separate. Existing saved media/downloads and project deletion stay available. Policy does not create billing or enforce a specific subscription tier.
+
+Gateway v3 associates signed dedicated plan grants to explicitly configured operator capability profiles. No default allowances are assumed. Local workspace caps can only reduce access; monthly accounting is shared across plan switches. Already accepted renders and existing exports are not revoked. No payment enabled.

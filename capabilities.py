@@ -53,3 +53,32 @@ def parse(value):
             raise ValueError("Invalid capability choices")
         return frozenset(items)
     return Policy(edge,seconds,count,choices(value["qualities"],engine.QUALITIES),choices(value["features"],FEATURES,True))
+
+
+PLANS=frozenset(("free","standard","pro"))
+
+@dataclass(frozen=True)
+class PlanProfile:
+    policy: Policy
+    monthly_render_seconds: int
+
+def parse_profiles(value):
+    if not isinstance(value,dict) or set(value)!=PLANS:
+        raise ValueError("All three explicit plan profiles required")
+    result={}
+    for plan,record in value.items():
+        if not isinstance(record,dict) or set(record)!={"capabilities","monthly_render_seconds"}:
+            raise ValueError("Invalid plan profile")
+        limit=record["monthly_render_seconds"]
+        if type(limit) is not int or not 0<=limit<=999999999:
+            raise ValueError("Explicit bounded monthly quota required")
+        result[plan]=PlanProfile(parse(record["capabilities"]),limit)
+    return result
+
+def intersect(a,b):
+    if b is None:
+        return a
+    return Policy(min(a.max_output_edge,b.max_output_edge),
+                  min(a.max_render_seconds,b.max_render_seconds),
+                  min(a.max_projects,b.max_projects),
+                  a.qualities & b.qualities,a.features & b.features)

@@ -16,11 +16,12 @@ from contextlib import closing
 import time
 from pathlib import Path
 from dataclasses import dataclass
+import capabilities
 
 UUID=re.compile(r"[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}")
 NONCE=re.compile(r"[a-f0-9]{32}")
 B64=re.compile(r"[A-Za-z0-9_-]+")
-AUDIENCE="c4pcut-private-v2"
+AUDIENCE="c4pcut-private-v3"
 EMPTY_HASH=hashlib.sha256(b"").hexdigest()
 BODY_HASH=re.compile(r"[a-f0-9]{64}")
 ISSUER="takatak-studio-gateway"
@@ -41,6 +42,7 @@ class Principal:
     profile_id: str
     workspace: str
     body_sha256: str
+    plan: str
 
 class ReplayStore:
     """Atomic nonce reservation across threads and restarts in a private store."""
@@ -89,10 +91,12 @@ class Gateway:
             if not hmac.compare_digest(expected,sig):
                 return None
             c=json.loads(raw)
-            keys={"iss","aud","sub","client_id","permission","entitlement","iat","exp","nonce","method","target","body_sha256"}
+            keys={"iss","aud","sub","client_id","permission","entitlement","iat","exp","nonce","method","target","body_sha256","plan"}
             if not isinstance(c,dict) or set(c)!=keys:
                 return None
             if c["iss"]!=ISSUER or c["aud"]!=AUDIENCE or c["permission"]!="create_content" or c["entitlement"]!="c4pcut_active":
+                return None
+            if not isinstance(c["plan"],str) or c["plan"] not in capabilities.PLANS:
                 return None
             if not isinstance(c["sub"],str) or not UUID.fullmatch(c["sub"]) or not isinstance(c["client_id"],str) or c["client_id"] not in self.mapping:
                 return None
@@ -115,7 +119,7 @@ class Gateway:
                     if c["nonce"] in self.seen or len(self.seen)>=MAX_NONCES:
                         return None
                     self.seen[c["nonce"]]=exp
-            return Principal(c["client_id"],c["sub"],self.mapping[c["client_id"]],c["body_sha256"])
+            return Principal(c["client_id"],c["sub"],self.mapping[c["client_id"]],c["body_sha256"],c["plan"])
         except (ValueError,TypeError,KeyError,UnicodeError,binascii.Error,sqlite3.Error):
             return None
 

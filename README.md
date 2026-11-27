@@ -79,3 +79,5 @@ A read-only V1 GrowthSubscription adapter candidate is available in integration/
 Commercial catalog preflight candidate checks the proposed disabled C4PCUT product against V1 ProductCatalog shape, without mutation. See docs/V1_CATALOG_HANDOFF.md.
 
 Optional private workspace capability profiles constrain export size/quality/duration, projects and selected AI/media features, before render quota reservation. No commercial plan allowances are assigned yet; see docs/DEPLOYMENT.md.
+
+Gateway protocol v3 binds the validated plan to explicit server-managed profiles and intersects with workspace restrictions. Shared monthly ledger prevents quota reset on plan change. No commercial allowance defaults or live V1 wiring.

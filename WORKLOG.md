@@ -120,3 +120,7 @@
 ## Configurable workspace capability policy
 - PR #11 preflight CI 45936131781 still running at start; no unverified merge.
 - Added opt-in workspace capabilities for resolution (including original), render duration, quality, project count, and selected features; server applies to both render paths before quota reservation. Session exposes policy; existing download/delete preserved. Added HTTP and validation tests. No automatic Free/Standard/Pro mapping, billing, V1 changes or public deployment. CI pending.
+
+## Signed plan capability mapping
+- PR #11 CI 45936276046 passed; merged at cc5ff3a388000bcd0a72ba8e1d8e9ff5d8f76557.
+- Gateway v3 mandatory signed plan claim, explicit three-plan config, restrictive workspace intersection and per-request quota cap on existing ledger. Tests cover legacy rejection, plan changes, intersection and Node/Python signatures. New CI pending. No approved allowance defaults, live V1 changes or payment activation.

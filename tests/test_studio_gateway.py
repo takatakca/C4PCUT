@@ -13,6 +13,7 @@ import studio_gateway
 import owner_auth
 import server
 import workspaces
+import capabilities
 
 A="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 B="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
@@ -24,7 +25,7 @@ def encode(raw):
 
 def assertion(target="/api/session",method="GET",client=A,body=b"",**changes):
     claims={"iss":studio_gateway.ISSUER,"aud":studio_gateway.AUDIENCE,"sub":PROFILE,
-            "client_id":client,"permission":"create_content","entitlement":"c4pcut_active",
+            "client_id":client,"permission":"create_content","entitlement":"c4pcut_active","plan":"free",
             "iat":1000,"exp":1030,"nonce":secrets.token_hex(16),"method":method,"target":target,"body_sha256":hashlib.sha256(body).hexdigest()}
     claims.update(changes)
     raw=encode(json.dumps(claims,separators=(",",":")).encode())
@@ -36,7 +37,7 @@ class GatewayTests(unittest.TestCase):
         token=assertion()
         self.assertEqual(g.verify(token,"GET","/api/session").workspace,"alpha")
         self.assertIsNone(g.verify(token,"GET","/api/session"))
-        for kw in [{"exp":1001},{"iat":1002},{"exp":1031},{"aud":"wrong"},{"permission":"view_reports"},{"entitlement":"inactive"},{"client":"dddddddd-dddd-dddd-dddd-dddddddddddd"},{"sub":"bad"},{"method":"POST"},{"target":"/api/usage"}]:
+        for kw in [{"exp":1001},{"iat":1002},{"exp":1031},{"aud":"wrong"},{"aud":"c4pcut-private-v2"},{"plan":"enterprise"},{"permission":"view_reports"},{"entitlement":"inactive"},{"client":"dddddddd-dddd-dddd-dddd-dddddddddddd"},{"sub":"bad"},{"method":"POST"},{"target":"/api/usage"}]:
             self.assertIsNone(g.verify(assertion(**kw),"GET","/api/session"))
         token=assertion()
         raw,sig=token.split(".")
@@ -76,6 +77,8 @@ class GatewayTests(unittest.TestCase):
             httpd=ThreadingHTTPServer(("127.0.0.1",0),server.Handler)
             httpd.workspaces=registry
             httpd.persistent=True
+            policy={"max_output_edge":1280,"max_render_seconds":30,"max_projects":1,"qualities":["compact"],"features":[]}
+            httpd.plan_profiles=capabilities.parse_profiles({p:{"capabilities":policy,"monthly_render_seconds":60 if p=="free" else 120} for p in capabilities.PLANS})
             httpd.studio_gateway=studio_gateway.Gateway(KEY,{A:"alpha",B:"beta"},registry,clock=lambda:1001)
             thread=threading.Thread(target=httpd.serve_forever,daemon=True)
             thread.start()
@@ -97,6 +100,13 @@ class GatewayTests(unittest.TestCase):
                 status,raw=req("/api/session",token)
                 self.assertEqual(status,200)
                 self.assertEqual(json.loads(raw)["workspace"],"alpha")
+                self.assertEqual(json.loads(raw)["plan"],"free")
+                self.assertEqual(json.loads(raw)["capabilities"]["max_output_edge"],1280)
+                self.assertEqual(json.loads(req("/api/usage",assertion(target="/api/usage"))[1])["limit_seconds"],60)
+                self.assertEqual(json.loads(req("/api/usage",assertion(target="/api/usage",plan="pro"))[1])["limit_seconds"],120)
+                path="/api/transcribe"
+                payload={"id":ident}
+                self.assertEqual(req(path,assertion(target=path,method="POST",body=json.dumps(payload).encode()),payload=payload,csrf=registry["alpha"].token)[0],403)
                 self.assertEqual(req("/api/session",token)[0],401)
                 path="/api/source/"+ident
                 self.assertEqual(req(path,assertion(target=path)),(200,b"private alpha"))

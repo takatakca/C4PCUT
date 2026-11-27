@@ -10,6 +10,7 @@ test("verified access produces receiver-compatible signature and exact bytes",as
   const [encoded,signature]=result.header.split(".");
   assert.equal(createHmac("sha256",Buffer.from(key,"hex")).update(encoded).digest("base64url"),signature);
   const claims=JSON.parse(Buffer.from(encoded,"base64url"));
+  assert.equal(claims.plan,"pro");
   assert.equal(claims.client_id,client);assert.equal(claims.sub,profile);
   assert.equal(claims.exp-claims.iat,30);
   assert.equal(claims.body_sha256,createHash("sha256").update(body).digest("hex"));
