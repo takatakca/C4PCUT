@@ -57,3 +57,6 @@ Optional C4PCUT_OWNER_PASSWORD enables Basic authentication for the entire edito
 
 ## Local render usage
 The owner-local SQLite ledger records rounded requested output seconds for main and clipper render attempts, with terminal outcomes. Optional C4PCUT_MONTHLY_RENDER_SECONDS sets a UTC calendar-month cap; unset means no cap. Cancelled, failed and interrupted accepted attempts still count toward this resource protection cap; queue rejections are excluded. This is not billable usage, no payments or customer subscriptions are enabled. Persistent storage retains the ledger across restarts. See docs/STUDIO_INTEGRATION.md for the proposed future account boundary.
+
+## Private workspace mode
+Optional administrator-provisioned workspace configuration gives each workspace separate project directories, in-memory job maps, CSRF tokens, and SQLite usage ledgers. Render status and cancellation are workspace-scoped; one shared worker and mutation lock protect host capacity. Credentials are workspace slug + unique high-entropy password over the private SSH tunnel. This is not public multi-tenant hosting or live TAKATAK login. The default single-owner mode is unchanged. See docs/DEPLOYMENT.md for setup and limits.

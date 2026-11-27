@@ -20,14 +20,14 @@ class RenderQueue:
         with self.lock:
             return any(t["status"] in ("queued","running","cancelling") for t in self.tasks.values())
 
-    def submit(self, project, work, on_finish=None):
+    def submit(self, project, work, on_finish=None, scope=None):
         with self.lock:
             active=[t for t in self.tasks.values() if t["status"] in ("queued","running","cancelling")]
-            if self.closed or len(active)>=self.capacity or any(t["project"]==project for t in active):
+            if self.closed or len(active)>=self.capacity or any(t["project"]==project and t["scope"]==scope for t in active):
                 raise ValueError("Render queue full or project already rendering")
             # Existing export URLs refer to the latest export for each project.
             for key,t in list(self.tasks.items()):
-                if t["project"]==project and t not in active:
+                if t["project"]==project and t["scope"]==scope and t not in active:
                     del self.tasks[key]
             while len(self.tasks)>=self.retention:
                 old=next((k for k,t in self.tasks.items() if t not in active),None)
@@ -35,7 +35,7 @@ class RenderQueue:
                     break
                 del self.tasks[old]
             ident=secrets.token_hex(16)
-            self.tasks[ident]={"project":project,"status":"queued","progress":0,
+            self.tasks[ident]={"project":project,"scope":scope,"status":"queued","progress":0,
                                "cancel":threading.Event(),"work":work,"result":None,"on_finish":on_finish}
             self.pending.append(ident)
             if self.worker is None:
@@ -43,14 +43,18 @@ class RenderQueue:
                 self.worker.start()
             return ident
 
-    def status(self, ident):
+    def status(self, ident, scope=None):
         with self.lock:
             t=self.tasks[ident]
+            if t["scope"]!=scope:
+                raise KeyError("Unknown render")
             return {k:t[k] for k in ("status","progress","result")}
 
-    def cancel(self, ident):
+    def cancel(self, ident, scope=None):
         with self.lock:
             t=self.tasks[ident]
+            if t["scope"]!=scope:
+                raise KeyError("Unknown render")
             if t["status"]=="queued":
                 t["cancel"].set()
                 t["status"]="cancelled"
@@ -105,9 +109,9 @@ class RenderQueue:
     def shutdown(self):
         with self.lock:
             self.closed=True
-            keys=[k for k,t in self.tasks.items() if t["status"] in ("queued","running")]
+            keys=[(k,t["scope"]) for k,t in self.tasks.items() if t["status"] in ("queued","running")]
             worker=self.worker
-        for key in keys:
-            self.cancel(key)
+        for key,scope in keys:
+            self.cancel(key,scope)
         if worker:
             worker.join()

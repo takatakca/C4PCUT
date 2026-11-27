@@ -207,7 +207,7 @@ $("ticks").addEventListener("click",e=>{if(!job)return;const b=$("ticks").getBou
 window.addEventListener("resize",updatePlayhead);
 $("tracks").addEventListener("scroll",updatePlayhead);
 $("file").disabled=true;drawTimeline();
-fetch("/api/session").then(r=>r.json()).then(data=>{token=data.token;updateButtons();log("Local processing engine ready");refreshProjects().catch(e=>log(e.message,true));refreshUsage();}).catch(()=>log("Unable to connect to local engine",true));
+fetch("/api/session").then(r=>r.json()).then(data=>{token=data.token;updateButtons();log(data.workspace?"Private workspace: "+data.workspace:"Local processing engine ready");refreshProjects().catch(e=>log(e.message,true));refreshUsage();}).catch(()=>log("Unable to connect to local engine",true));
 
 function refreshCaption(){$("caption-text").value=cues[activeCue]?.text||"";}
 function updateCaptionOverlay(){
