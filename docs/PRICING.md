@@ -7,3 +7,5 @@ The validated catalog only describes monthly prices. Every plan, including Free,
 The private pilot grant registry is an operator-managed access reference, not an indication that a plan has been paid. It does not change monthly prices or create subscriptions. Actual paid-plan allowances and billing integration remain pending.
 
 Proposed V1 subscription keys: c4pcut_standard and c4pcut_pro. They are reference identifiers, not registered products. The read-only adapter intentionally excludes trialing and past-due rows; cancellation scheduled for period end retains access while the authoritative status is active and the period valid. No trial/grace policy has been approved. Free requires a separate explicit grant. No checkout, tax or invoice functionality activated.
+
+Read-only V1 commercial catalog preflight: see docs/V1_CATALOG_HANDOFF.md. Proposed catalog rows are draft, prices inactive, checkout ineligible. No Stripe price IDs or feature grants. Existing catalog conflicts are reported rather than modified.

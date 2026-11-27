@@ -85,3 +85,6 @@
 
 ## V1 billing adapter candidate
 - Read-only adapter matches observed GrowthSubscription schema with proposed dedicated C4PCUT keys, active period and client checks. Tests added; CI pending. No live lookup, SKU registration or payment verification. Actual V1 wiring, verified subscription lifecycle, plan allowances and deployment remain pending.
+
+## Commercial catalog preflight
+- PR #10 passed CI and merged. Draft disabled V1-compatible product/plan/price specification, read-only conflict preflight and tests implemented. Latest CI pending. No actual product registration or live billing; V1 integration and worker isolation remain open.
