@@ -74,6 +74,7 @@ class GatewayTests(unittest.TestCase):
             folder.mkdir()
             (folder/"source.media").write_bytes(b"private alpha")
             (folder/"music.wav").write_bytes(b"private soundtrack")
+            (folder/"pip.mp4").write_bytes(b"private secondary")
             registry["alpha"].jobs[ident]={"folder":folder}
             httpd=ThreadingHTTPServer(("127.0.0.1",0),server.Handler)
             httpd.workspaces=registry
@@ -116,6 +117,9 @@ class GatewayTests(unittest.TestCase):
                 self.assertEqual(req(path,assertion(target=path))[0],403)
                 self.assertEqual(req(path,assertion(target=path,plan="pro")),(200,b"private soundtrack"))
                 self.assertEqual(req(path,assertion(target=path,client=B,plan="pro"))[0],404)
+                path="/api/pip/"+ident
+                self.assertEqual(req(path,assertion(target=path)),(200,b"private secondary"))
+                self.assertEqual(req(path,assertion(target=path,client=B))[0],404)
                 path="/api/projects/list"
                 self.assertEqual(req(path,assertion(target=path,method="POST",client=B,body=b"{}"),payload={},csrf=registry["alpha"].token)[0],403)
                 self.assertEqual(req(path,assertion(target=path,method="POST",client=B,body=b"{}"),payload={},csrf=registry["beta"].token)[0],200)

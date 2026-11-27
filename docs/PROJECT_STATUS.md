@@ -138,3 +138,6 @@
 
 ## Picture-in-picture engine
 - PR #23 passed CI and merged. Secondary-video normalization and composition engine added, tests pending. Not exposed in UI or HTTP; project persistence and workspace access still to implement. General multiple image/video layers, production integration and live deployment remain open.
+
+## Picture-in-picture editor
+- PR #24 engine CI passed and merged. Editor controls, authenticated asset upload/preview, saved project revision and main MP4 composition wired; tests pending. One silent secondary video per project, approximate preview. Multi-asset library and live TAKATAK integration/deployment remain outstanding.

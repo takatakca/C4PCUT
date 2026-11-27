@@ -29,3 +29,5 @@
 #title-overlay.lower_left{bottom:20%;text-align:left}#title-overlay span{box-decoration-break:clone;-webkit-box-decoration-break:clone}#title-overlay.purple_banner span,#title-overlay.dark_banner span{padding:0.12em .25em;line-height:1.65;text-shadow:none}#title-overlay.purple_banner span{background:#70329c}#title-overlay.dark_banner span{background:#182028}
 
 #logo-overlay{position:absolute;max-width:20%;max-height:20%;object-fit:contain;pointer-events:none}#logo-overlay[hidden]{display:none}#logo-overlay.top_left{top:8px;left:8px}#logo-overlay.top_right{top:8px;right:8px}#logo-overlay.bottom_left{bottom:8px;left:8px}#logo-overlay.bottom_right{bottom:8px;right:8px}.logo-toolbar{flex-wrap:wrap}
+
+#pip-overlay{position:absolute;object-fit:contain;pointer-events:none}#pip-overlay[hidden]{display:none}#pip-overlay.top_left{top:8px;left:8px}#pip-overlay.top_right{top:8px;right:8px}#pip-overlay.bottom_left{bottom:8px;left:8px}#pip-overlay.bottom_right{bottom:8px;right:8px}.pip-toolbar{flex-wrap:wrap}.pip-toolbar input[type=number]{width:65px}

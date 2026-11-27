@@ -11,6 +11,7 @@ import engine
 import captions
 import titles
 import logos
+import pip_video
 import music
 import director
 import clipper
@@ -149,6 +150,10 @@ class Handler(BaseHTTPRequestHandler):
         parts = path.split("/")
         if len(parts) == 4 and parts[1:3] == ["api", "source"] and parts[3] in self.jobs:
             return self.file(self.jobs[parts[3]]["folder"] / "source.media", "application/octet-stream")
+        if len(parts) == 4 and parts[1:3] == ["api", "pip"] and parts[3] in self.jobs:
+            asset=self.jobs[parts[3]]["folder"]/"pip.mp4"
+            if asset.is_symlink() or not asset.is_file():return self.reply({"error":"Not found"},404)
+            return self.file(asset,"video/mp4")
         if len(parts) == 4 and parts[1:3] == ["api", "logo"] and parts[3] in self.jobs:
             asset=self.jobs[parts[3]]["folder"]/"logo.png"
             if asset.is_symlink() or not asset.is_file():return self.reply({"error":"Not found"},404)
@@ -186,7 +191,7 @@ class Handler(BaseHTTPRequestHandler):
         if getattr(self,"gateway_principal",None) is not None:
             # Authenticate before receiving a body. Stage bytes, verify digest,
             # then replay only the verified bytes through existing handlers.
-            limit=engine.MAX_BYTES if path=="/api/import" else music.MAX_MUSIC_BYTES if path.startswith("/api/music/import/") else logos.MAX_BYTES if path.startswith("/api/logo/import/") else 262144
+            limit=engine.MAX_BYTES if path=="/api/import" else music.MAX_MUSIC_BYTES if path.startswith("/api/music/import/") else logos.MAX_BYTES if path.startswith("/api/logo/import/") else pip_video.MAX_BYTES if path.startswith("/api/pip/import/") else 262144
             if path in {"/api/render/status","/api/render/cancel"}:
                 limit=1024
             if self.headers.get("Transfer-Encoding") is not None:
@@ -280,6 +285,22 @@ class Handler(BaseHTTPRequestHandler):
                     raise
                 self.jobs[job_id] = {"folder": folder, "metadata": metadata}
                 return self.reply({"id": job_id, **metadata})
+            if path.startswith("/api/pip/import/"):
+                job_id=path.split("/")[-1];job=self.jobs[job_id]
+                if not 0<size<=pip_video.MAX_BYTES:raise ValueError("Maximum secondary video upload is 24 MiB")
+                folder=job["folder"];raw=folder/"pip-upload.media";temp=folder/"pip-pending.mp4"
+                try:
+                    with raw.open("wb") as out:
+                        remaining=size
+                        while remaining:
+                            chunk=self.rfile.read(min(remaining,1024*1024))
+                            if not chunk:raise ValueError("Incomplete secondary video")
+                            out.write(chunk);remaining-=len(chunk)
+                    meta=pip_video.normalize(raw,temp)
+                    temp.replace(folder/"pip.mp4");job["pip_meta"]=meta
+                    return self.reply({"pip_url":"/api/pip/"+job_id,"pip_meta":meta})
+                finally:
+                    raw.unlink(missing_ok=True);temp.unlink(missing_ok=True)
             if path.startswith("/api/logo/import/"):
                 job_id=path.split("/")[-1]
                 job=self.jobs[job_id]
@@ -340,7 +361,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Project not found")
                 job,state=projects.restore(folder)
                 self.jobs[job_id]=job
-                return self.reply({"id":job_id,**job["metadata"],"clips":job["clips"],"state":state,"director_prompt":studio_pack.director_prompt(state["studio_brief"]) if state["studio_brief"] else "","music":job.get("music_analysis"),"logo_url":"/api/logo/"+job_id if (folder/"logo.png").is_file() else None,"source_url":"/api/source/"+job_id})
+                return self.reply({"id":job_id,**job["metadata"],"clips":job["clips"],"state":state,"director_prompt":studio_pack.director_prompt(state["studio_brief"]) if state["studio_brief"] else "","music":job.get("music_analysis"),"logo_url":"/api/logo/"+job_id if (folder/"logo.png").is_file() else None,"pip_url":"/api/pip/"+job_id if job.get("pip_meta") else None,"pip_meta":job.get("pip_meta"),"source_url":"/api/source/"+job_id})
             if path == "/api/projects/delete":
                 folder=Path(self.storage)/job_id
                 if not folder.is_dir() or folder.is_symlink():
@@ -473,6 +494,8 @@ class Handler(BaseHTTPRequestHandler):
                 title_items=titles.validate(payload.get("titles",[]),job["metadata"]["duration"])
                 logo_asset=job["folder"]/"logo.png"
                 logo_settings=logos.validate(payload.get("logo"),logo_asset.is_file(),job["metadata"]["duration"])
+                pip_asset=job["folder"]/"pip.mp4"
+                pip_settings=pip_video.validate(payload.get("pip"),job.get("pip_meta") if pip_asset.is_file() else None,job["metadata"]["duration"])
                 cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
                 mapped = captions.remap(cues, selected)
                 caption_mode = captions.validate_mode(payload.get("caption_mode", "soft"))
@@ -503,7 +526,7 @@ class Handler(BaseHTTPRequestHandler):
                         burn=captions.to_ass(mapped,caption_mode) if mapped and caption_mode!="soft" else None
                         engine.render(source,temp,selected,audio,subtitle if mapped and caption_mode=="soft" else None,
                                       music_path,music_gain,source_gain,burn_ass=burn,preset=preset,framing=framing,
-                                      quality=quality,cancel=cancel,progress=progress,title_ass=title_ass,logo_path=logo_asset if logo_settings["enabled"] else None,logo_position=logo_settings["position"],logo_size=logo_settings["size"],logo_opacity=logo_settings["opacity"],logo_start=logo_settings["start"],logo_end=logo_settings["end"])
+                                      quality=quality,cancel=cancel,progress=progress,title_ass=title_ass,logo_path=logo_asset if logo_settings["enabled"] else None,logo_position=logo_settings["position"],logo_size=logo_settings["size"],logo_opacity=logo_settings["opacity"],logo_start=logo_settings["start"],logo_end=logo_settings["end"],pip_path=pip_asset if pip_settings["enabled"] else None,pip_settings=pip_settings)
                         if cancel.is_set():
                             raise Cancelled()
                         temp.replace(folder/"export.mp4")
