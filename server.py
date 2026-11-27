@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 import engine
 import captions
 import music
+import director
 import os
 import sys
 
@@ -172,6 +173,15 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply({"error": "No usable audio onsets found"}, 400)
                 job["clips"] = music.beat_cuts(job["metadata"]["duration"], data["beats"], payload.get("interval", 2))
                 return self.reply({"clips": job["clips"]})
+            if path == "/api/director":
+                cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
+                use_music = payload.get("use_music", False)
+                if type(use_music) is not bool:
+                    raise ValueError("Invalid music selection")
+                analysis = job.get("music_analysis" if use_music else "source_music_analysis", {})
+                result = director.plan(payload.get("prompt"), payload.get("target"), payload.get("style"),
+                                       payload.get("provider"), job["clips"], cues, analysis.get("beats", []))
+                return self.reply(result)
             if path == "/api/render":
                 selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}))
                 cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])

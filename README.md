@@ -34,3 +34,6 @@ Choose Fade through black or Slow push-in in the scene effect selector. Auto cin
 
 ### Burned-in caption styles
 Choose Classic, Bold or Karaoke before exporting. These styles are permanently rendered into the output pixels using FFmpeg/libass (requires FFmpeg with the ass filter and DejaVu Sans or a fallback font). SRT export remains available. Karaoke splits each cue's duration evenly across its words; it is not measured word-level speech alignment. Preview is an approximation. Selectable subtitles remain the default.
+
+## AI Director
+Analyze media, choose a preset (deterministic, ignores free-form prompt semantics) or Ollama, set a maximum duration, generate and review a plan, then explicitly apply it. Undo restores previous scene selection and edits. The optional AI mode requires Ollama already listening on 127.0.0.1:11434 with an installed model named in C4PCUT_OLLAMA_MODEL. It receives only bounded scene timestamps, caption excerpts and onset counts, not images or audio; no arbitrary code execution. Output is validated against source bounds, effect allowlist and duration. Actual model quality and availability require local testing. No cloud endpoint or model pull is triggered.

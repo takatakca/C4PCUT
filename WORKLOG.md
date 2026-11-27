@@ -36,3 +36,7 @@
 
 ## Burn-in CI correction
 - CI 45921934787 failed only at the raw grayscale frame extraction command in the burn-in test (render completed). Changed seek to canonical 0.7 and limited output encoder threads; now reports FFmpeg stderr on failure. Reverification pending.
+
+## AI Director milestone
+- Added bounded local preset planner and optional loopback-only Ollama JSON planner, scene/caption/onset summaries, strict selection/trim/effect/duration validation, review/apply interface and undo.
+- Added deterministic and mocked Ollama contract tests; live model inference not verified. Presets do not interpret natural language. No semantic visual analysis yet.

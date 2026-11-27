@@ -3,7 +3,8 @@ const $ = id => document.getElementById(id);
 const commands = ["project = import_media()", "metadata = probe_media(project)", "scenes = detect_scenes(project)", "timeline = build_timeline(scenes)", "render(selected_clips)"];
 let token, job, clips = [], selected = new Set(), current = -1, busy = false, objectURL;
 let visuals = new Map(), history = [], future = [], edits = {}, cues = [], activeCue = -1;
-let musicData=null, sourceBeats=null, musicName="";
+let musicData=null, sourceBeats=null, musicName="", directorPlan=null;
+function clearDirector(){directorPlan=null;$("director-result").textContent="No pending plan";}
 function beatData(){return $("use-music").checked?musicData:sourceBeats;}
 function resetMusic(){musicData=null;sourceBeats=null;musicName="";$("use-music").checked=false;$("music-gain").value=.35;$("source-gain").value=1;}
 function musicStatus(){const data=beatData();$("beat-info").textContent=data?data.beats.length+" detected onsets"+(data.estimated_bpm?" · ~"+data.estimated_bpm+" BPM estimate":""):"No beat analysis";}
@@ -43,6 +44,8 @@ function updateButtons() {
   $("file").disabled = busy;
   $("analyze").disabled = busy || !job;
   $("render").disabled = busy || !selected.size;
+  $("director-plan").disabled=busy||!clips.length;
+  $("director-apply").disabled=busy||!directorPlan;
   $("cinematic").disabled=busy||!selected.size;
   $("undo").disabled=busy||!history.length;$("redo").disabled=busy||!future.length;
   for(const id of ["trim-in","trim-out","effect","apply-edit","reset-edit"])$(id).disabled=busy||current<0;
@@ -130,13 +133,13 @@ async function action(fn){
 $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)return;action(async()=>{
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
   step(0);log("Importing "+file.name);const result=await request("/api/import",file,true);
-  job=result;resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
+  job=result;clearDirector();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
   if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;
   $("format").textContent=job.width+" × "+job.height;step(1,true);log("Media verified · "+format(job.duration));
 });$("file").value="";});
 $("analyze").addEventListener("click",()=>action(async()=>{
   step(2);log("Running FFmpeg scene detection…");hideExports();
-  const result=await request("/api/analyze",{id:job.id});clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];edits={};current=-1;
+  const result=await request("/api/analyze",{id:job.id});clearDirector();clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];edits={};current=-1;
   step(3);log(clips.length+" scene segment(s) detected; extracting actual thumbnails and waveform");drawTimeline();
   try{const result=await request("/api/visuals",{id:job.id});visuals=new Map(result.visuals.map(v=>[v.id,v]));log("Scene thumbnails and source audio peaks ready");}
   catch(e){log("Visual extraction failed; cuts remain usable: "+e.message,true);}
@@ -193,7 +196,7 @@ $("beat-cut").addEventListener("click",()=>{
   action(async()=>{
     log("Building a new cut sequence from detected onsets…");hideExports();
     const result=await request("/api/music/cuts",{id:job.id,use_music:$("use-music").checked,interval:Number($("beat-interval").value)});
-    clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];edits={};current=-1;drawTimeline();
+    clearDirector();clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];edits={};current=-1;drawTimeline();
     try{const result=await request("/api/visuals",{id:job.id});visuals=new Map(result.visuals.map(v=>[v.id,v]));}catch(e){log("Visual extraction failed: "+e.message,true);}
     drawTimeline();log(clips.length+" beat-based segments created");connect(3,$("clip-0"));
   });
@@ -214,3 +217,21 @@ $("cinematic").addEventListener("click",()=>{
 });
 
 $("caption-mode").addEventListener("change",()=>{hideExports();updateCaptionOverlay();log("Caption export style: "+$("caption-mode").value);});
+
+for(const id of ["director-prompt","director-target","director-style","director-provider"])$(id).addEventListener("input",()=>{clearDirector();updateButtons();});
+$("director-plan").addEventListener("click",()=>action(async()=>{
+  clearDirector();
+  const provider=$("director-provider").value, style=$("director-style").value;
+  const prompt=$("director-prompt").value.trim()||(provider==="preset"?"Apply "+style+" preset":"");
+  if(!prompt)throw new Error("Describe the requested edit");
+  log("Generating "+provider+" edit plan…");
+  const result=await request("/api/director",{id:job.id,provider,style,prompt,target:$("director-target").valueAsNumber,cues,use_music:$("use-music").checked});
+  directorPlan=result;$("director-result").textContent=result.clips.length+" scenes · "+result.duration+"s · "+result.reason;
+  log("Validated plan ready for review");updateButtons();
+}));
+$("director-apply").addEventListener("click",()=>{
+  if(busy||!directorPlan)return;
+  if(!window.confirm("Apply director selection, trims and effects? Undo is available."))return;
+  remember();selected=new Set(directorPlan.clips);edits=directorPlan.edits;current=-1;hideExports();
+  const first=directorPlan.clips[0];clearDirector();drawTimeline();log("Director plan applied to timeline");connect(3,$("clip-"+first));
+});
