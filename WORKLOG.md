@@ -98,3 +98,5 @@
 ## Studio issuer reference
 - Gateway V2 CI 45933769011 passed; PR #7 merged at 19aea1fb590fd1d0f0cc04ffa57e89644685df3d.
 - Inspected current V1 permission guard, tenant access and Studio flag; no dedicated C4PCUT entitlement found. Added server-only Node reference issuer with injected authoritative access/entitlement checks, explicit route allowlist, exact body snapshots and short-lived signatures. Added Node unit tests and Node-to-Python interoperability tests. Latest CI pending. No V1 writes, live issuer, relay, billing or deployment.
+
+- Owner pricing direction: match CapCut. Recorded verified Canadian App Store monthly reference prices (CAD 0/13.49/27.99) in disabled catalog and pricing policy. Annual pricing and feature allowances remain unresolved. No billing activated. Issuer CI 45934058126 in progress before catalog commit.

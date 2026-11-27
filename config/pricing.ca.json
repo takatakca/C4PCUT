@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "currency": "CAD",
+  "billing_enabled": false,
+  "reference": {
+    "provider": "CapCut",
+    "storefront": "Apple App Store Canada",
+    "url": "https://apps.apple.com/ca/app/capcut-video-photo-editor/id1500855883?platform=ipad",
+    "checked_on": "2026-11-26"
+  },
+  "plans": [
+    {
+      "code": "free",
+      "monthly_minor_units": 0
+    },
+    {
+      "code": "standard",
+      "monthly_minor_units": 1349
+    },
+    {
+      "code": "pro",
+      "monthly_minor_units": 2799
+    }
+  ],
+  "annual_prices": null,
+  "entitlements": null
+}
