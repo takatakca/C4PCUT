@@ -95,10 +95,16 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     for key in ("data","workspaces","mapping","profiles","grants"):
         p.add_argument("--"+key,required=True,type=Path)
+    p.add_argument("--html",type=Path,help="Create a new private HTML snapshot")
     args=p.parse_args()
     try:
         data=report(args.data,read_json(args.workspaces,32768),read_json(args.mapping,16384),read_json(args.profiles,32768),read_json(args.grants,262144))
-        print(json.dumps(data,indent=2))
+        if args.html:
+            from admin_dashboard import write_html
+            write_html(args.html,data)
+            print("Private HTML snapshot created. Keep it outside public web directories.")
+        else:
+            print(json.dumps(data,indent=2))
     except (ValueError,OSError,TypeError):
         p.exit(1,"Report unavailable: invalid or missing private data\n")
 
