@@ -66,3 +66,6 @@
 
 ## TAKATAK Studio pack interoperability
 - Workspace isolation CI passed and PR #6 merged. Offline import of verified V1 production_request_pack v1 now implemented with creative-field whitelist, attachment to existing project, editable Director prompt and persisted brief. Identity and permissions remain from the authenticated C4PCUT workspace. Live SSO, product entitlements and payments remain pending. New CI pending.
+
+## Studio gateway receiver
+- Optional signed service request verification and workspace mapping implemented, disabled by default. Receiver tests added; new CI pending. No actual V1 issuer or product entitlement lookup, no live SSO, no public deployment. Private secure transport and replay durability remain prerequisites.

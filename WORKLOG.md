@@ -86,3 +86,7 @@
 - Read V1 main 09c6f21f42d0ee39385ec5e11c389fba6a191205 workspace permission gate and actual Studio production_request_pack v1 contract. Added local creative-only pack parsing, authenticated import endpoint, explicit attachment, saved manifest field and regression tests. No V1 writes or SSO claims. Latest CI pending.
 
 - Added pack HTTP import/save/open regression to workspace isolation test, restored canonical Director prompt on reopen, and matched upstream empty character-profile semantics. Latest CI pending.
+
+## Studio gateway verification precursor
+- PR #7 pack CI 45933475479 still running at start. Kept work on same branch; no unverified merge.
+- Added opt-in receiver verifier with signed client/profile/permission/entitlement claims, one-to-one trusted workspace map, exact request method/target, 30-second TTL, bounded replay cache, no Basic fallback in gateway mode and HTTP isolation tests. No live issuer, body signature, restart-durable replay or public exposure. Latest CI pending.

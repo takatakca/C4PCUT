@@ -17,6 +17,7 @@ import owner_auth
 import usage
 import workspaces
 import studio_pack
+import studio_gateway
 from render_queue import RenderQueue, Cancelled
 from contextlib import nullcontext
 import re
@@ -44,7 +45,12 @@ class Handler(BaseHTTPRequestHandler):
     def owner_allowed(self):
         registry=getattr(self.server,"workspaces",None)
         if registry is not None:
-            workspace=workspaces.authenticate(self.headers.get("Authorization"),registry)
+            gateway=getattr(self.server,"studio_gateway",None)
+            if gateway is not None:
+                principal=gateway.verify(self.headers.get("X-C4PCUT-Gateway"),self.command,self.path)
+                workspace=registry.get(principal.workspace) if principal is not None else None
+            else:
+                workspace=workspaces.authenticate(self.headers.get("Authorization"),registry)
             if workspace is not None:
                 self.scope=workspace.slug
                 self.jobs=workspace.jobs
@@ -61,7 +67,8 @@ class Handler(BaseHTTPRequestHandler):
             return True
         data=b'{"error":"Private editor authentication required"}'
         self.send_response(401)
-        self.send_header("WWW-Authenticate",'Basic realm="C4PCUT private editor", charset="UTF-8"')
+        if getattr(self.server,"studio_gateway",None) is None:
+            self.send_header("WWW-Authenticate",'Basic realm="C4PCUT private editor", charset="UTF-8"')
         self.send_header("Content-Type","application/json")
         self.send_header("Content-Length",str(len(data)))
         self.send_header("Cache-Control","no-store")
@@ -421,6 +428,10 @@ if __name__ == "__main__":
         raise SystemExit(str(exc)) from exc
     del password
     config=os.environ.get("C4PCUT_WORKSPACES_FILE")
+    gateway_config=os.environ.get("C4PCUT_GATEWAY_MAPPING_FILE")
+    gateway_key=os.environ.get("C4PCUT_GATEWAY_KEY_FILE")
+    if (gateway_config or gateway_key) and not (gateway_config and gateway_key and config):
+        raise SystemExit("Gateway mode requires mapping, key file and workspace mode")
     if config and digest is not None:
         raise SystemExit("Workspace mode and owner password mode are mutually exclusive")
     root=os.environ.get("C4PCUT_DATA_DIR")
@@ -440,6 +451,7 @@ if __name__ == "__main__":
                 if config and limit is not None:
                     raise ValueError("Set quotas in workspace configuration, not global environment")
                 server.workspaces=workspaces.load(config,storage) if config else None
+                server.studio_gateway=studio_gateway.load(gateway_config,gateway_key,server.workspaces) if gateway_config else None
                 server.ledger=None if config else usage.Ledger(storage,limit)
             except ValueError as exc:
                 raise SystemExit(str(exc)) from exc
