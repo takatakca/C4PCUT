@@ -23,3 +23,8 @@
 - Caption CI 45921488435 was in progress at start of this increment.
 - Added local bounded audio import, normalized WAV, source/music transient analysis, approximate tempo, waveform and markers, beat-derived replacement cuts, independent gains and FFmpeg mix with short-track padding.
 - Added synthetic onset and mix tests. New CI pending. No claims of trained beat tracking or mixed live preview.
+
+## Cinematic milestone
+- Music CI 45921640888 and caption CI 45921488435 passed.
+- Added duration-preserving fade through black, centered animated push-in, and deterministic batch cinematic styling with undo. Added real FFmpeg render test for duration, geometry and fade pixels.
+- New CI pending; no overlap transitions or model-based style decisions yet.

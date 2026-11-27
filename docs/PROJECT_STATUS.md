@@ -26,3 +26,6 @@
 ## Music and beat cuts
 - Local source/imported audio transient analysis and approximate tempo; music lane waveform and onset markers, explicit beat-cut segmentation and source-aligned gain-controlled render mixing.
 - Heuristic onset detection (not a learned musical beat tracker). Source monitor does not play mixed music; music edits and resegmentation are not undoable. Cinematic transitions, beat-aware clip ranking and animated captions remain planned. Tests pending.
+
+## Cinematic effects
+- Added fade through black, slow animated centered zoom and deterministic batch cinematic styling. Zoom sequences normalize to 30 fps; fade preserves duration. Source monitor still shows unprocessed video. Overlapping crossfades, animated captions, rendered preview and model-directed effects remain planned. CI pending.

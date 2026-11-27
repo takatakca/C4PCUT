@@ -7,3 +7,5 @@
 .caption-lane{position:relative;min-height:44px}.caption-block{position:absolute;top:2px;bottom:2px;min-width:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px;background:#8e6028;border:1px solid #d8ad60;font-size:10px}.caption-block.selected{outline:2px solid white;z-index:1}.caption-toolbar input[type=text]{width:220px}.caption-toolbar .button{padding:4px 8px}#caption-overlay{position:absolute;bottom:52px;left:8%;right:8%;text-align:center;white-space:pre-line;pointer-events:none;color:white;font-size:clamp(13px,2vw,22px);font-weight:700;text-shadow:1px 2px 4px black,-1px -1px 3px black;background:#0008;border-radius:5px;padding:3px}
 
 .music-toolbar input[type=range]{width:90px;accent-color:#65d3af}.music-toolbar .button{padding:4px 8px}.music-lane{position:relative;background:#173b35;overflow:hidden}.beat-marker{position:absolute;top:0;bottom:0;width:1px;background:#eec87b;z-index:1;opacity:.8}.music-label{position:relative;z-index:2;align-self:center;margin:5px;padding:3px;background:#101b20c9;border-radius:3px;color:#d1f1e3;font-size:10px}
+
+#cinematic{border-color:#a88bf8;background:#4b376d}

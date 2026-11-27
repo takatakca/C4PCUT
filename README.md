@@ -28,3 +28,6 @@ Import an SRT file or optionally generate captions on the local CPU. Install opt
 
 ## Music and beat cuts
 Import an audio file up to 64 MB, or detect onsets from the original soundtrack. The local transient detector plots onset markers and an approximate BPM when enough intervals exist. Mix music with source audio using independent gain controls. Music is anchored to source time; selected cuts remove matching music intervals and short music is padded with silence. Beat-cut mode explicitly replaces scene cuts, trims and effects while keeping captions. Source monitor remains unmixed; export applies the mix. Music settings and replacing the segmentation are not part of undo history. No external services required.
+
+## Cinematic presets
+Choose Fade through black or Slow push-in in the scene effect selector. Auto cinematic applies a deterministic alternating set of zoom, warm, fade and contrast effects to selected scenes; existing trims are retained and undo restores edits. Zoom normalizes the sequence to 30 fps. Fades do not overlap, so subtitle/audio mapping remains unchanged. Preview still shows source footage, not rendered effects.

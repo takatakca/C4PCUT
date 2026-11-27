@@ -43,6 +43,7 @@ function updateButtons() {
   $("file").disabled = busy;
   $("analyze").disabled = busy || !job;
   $("render").disabled = busy || !selected.size;
+  $("cinematic").disabled=busy||!selected.size;
   $("undo").disabled=busy||!history.length;$("redo").disabled=busy||!future.length;
   for(const id of ["trim-in","trim-out","effect","apply-edit","reset-edit"])$(id).disabled=busy||current<0;
   $("srt-file").disabled=busy||!job;$("transcribe").disabled=busy||!job?.audio;$("clear-captions").disabled=busy||!cues.length;$("caption-text").disabled=busy||activeCue<0;$("apply-caption").disabled=busy||activeCue<0;
@@ -188,4 +189,18 @@ $("beat-cut").addEventListener("click",()=>{
     try{const result=await request("/api/visuals",{id:job.id});visuals=new Map(result.visuals.map(v=>[v.id,v]));}catch(e){log("Visual extraction failed: "+e.message,true);}
     drawTimeline();log(clips.length+" beat-based segments created");connect(3,$("clip-0"));
   });
+});
+
+$("cinematic").addEventListener("click",()=>{
+  if(busy||!selected.size)return;
+  remember();
+  const palette=["zoom","warm","fade","contrast"];
+  let index=0;
+  for(const c of clips){
+    if(!selected.has(c.id))continue;
+    const existing=edited(c);
+    const effect=c.end-c.start<.5?"contrast":palette[index%palette.length];
+    edits[c.id]={start:existing.start,end:existing.end,effect};index++;
+  }
+  hideExports();refreshInspector();drawTimeline();log("Cinematic preset applied to "+index+" selected scenes (render only)");connect(3,$("clip-"+[...selected][0]));
 });

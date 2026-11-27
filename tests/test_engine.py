@@ -60,5 +60,26 @@ class EngineTests(unittest.TestCase):
             self.assertEqual(len(pixel),3)
             self.assertLessEqual(max(pixel)-min(pixel),4)
 
+    def test_dynamic_effect_validation(self):
+        clips=engine.segments(4,[2])
+        self.assertEqual(engine.validate_edits([0],clips,{"0":{"effect":"zoom"}})[0]["effect"],"zoom")
+        self.assertIn("fade=t=out",engine.effect_filter("fade",.3))
+        with self.assertRaises(ValueError):
+            engine.effect_filter("zoom",2)
+
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg required")
+    def test_cinematic_render(self):
+        with tempfile.TemporaryDirectory() as d:
+            src,out=Path(d)/"source.mp4",Path(d)/"output.mp4"
+            engine.run(["ffmpeg","-nostdin","-y","-f","lavfi","-i","testsrc2=s=160x120:r=25:d=4","-c:v","libx264","-pix_fmt","yuv420p",str(src)])
+            clips=[{"start":0,"end":2,"effect":"zoom"},{"start":2,"end":4,"effect":"fade"}]
+            engine.render(src,out,clips,False)
+            info=engine.probe(out)
+            self.assertEqual((info["width"],info["height"]),(160,120))
+            self.assertAlmostEqual(info["duration"],4,delta=.15)
+            pixel=subprocess.run(["ffmpeg","-v","error","-ss","2","-i",str(out),"-frames:v","1","-vf","scale=1:1","-f","rawvideo","-pix_fmt","rgb24","-"],check=True,capture_output=True).stdout
+            self.assertEqual(len(pixel),3)
+            self.assertLess(max(pixel),30)
+
 if __name__ == "__main__":
     unittest.main()

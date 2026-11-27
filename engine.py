@@ -45,7 +45,22 @@ def validate_selection(ids, clips):
         raise ValueError("Invalid clip selection")
     return [clips[i] for i in sorted(ids)]
 
-EFFECTS = {"none": "", "mono": ",hue=s=0", "warm": ",colorbalance=rs=.06:bs=-.05", "contrast": ",eq=contrast=1.15:saturation=1.10"}
+EFFECTS = {"none": "", "mono": ",hue=s=0", "warm": ",colorbalance=rs=.06:bs=-.05", "contrast": ",eq=contrast=1.15:saturation=1.10", "fade": "", "zoom": ""}
+
+def effect_filter(effect, duration, dimensions=None):
+    if effect not in EFFECTS:
+        raise ValueError("Unknown effect")
+    if effect == "fade":
+        # Non-overlapping fade through black, preserving the edit duration.
+        fade = min(.35, duration/3)
+        return f",fade=t=in:st=0:d={fade:.6f},fade=t=out:st={duration-fade:.6f}:d={fade:.6f}"
+    if effect == "zoom":
+        if dimensions is None:
+            raise ValueError("Zoom requires normalized dimensions")
+        w,h=dimensions
+        frames=max(1,round(duration*30)-1)
+        return f",zoompan=z='1+0.12*min(1,on/{frames})':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=1:s={w}x{h}:fps=30,setsar=1"
+    return EFFECTS[effect]
 
 def validate_edits(ids, clips, edits):
     selected = validate_selection(ids, clips)
@@ -77,9 +92,17 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
     filters, inputs = [], []
     music_index = 2 if subtitle_path is not None else 1
     has_audio = audio or music_path is not None
+    # A zoom operation needs a fixed output geometry and frame rate. Normalize
+    # every scene in that sequence to keep concat inputs compatible.
+    dimensions = None
+    if any(c.get("effect") == "zoom" for c in clips):
+        info = probe(source)
+        dimensions = (max(2,info["width"]//2*2),max(2,info["height"]//2*2))
     for i, c in enumerate(clips):
         a, b = c["start"], c["end"]
-        filters.append(f"[0:v:0]trim=start={a}:end={b},setpts=PTS-STARTPTS,scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1{EFFECTS[c.get('effect', 'none')]}[v{i}]")
+        geometry = f"scale={dimensions[0]}:{dimensions[1]},fps=30" if dimensions else "scale=trunc(iw/2)*2:trunc(ih/2)*2"
+        effect = effect_filter(c.get("effect","none"), b-a, dimensions)
+        filters.append(f"[0:v:0]trim=start={a}:end={b},setpts=PTS-STARTPTS,{geometry},setsar=1{effect}[v{i}]")
         inputs.append(f"[v{i}]")
         if music_path is not None:
             duration = b-a
