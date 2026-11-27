@@ -73,3 +73,5 @@
 ## Local usage and entitlement foundation
 - Owner security CI 45926153893 passed; PR #4 merged at 147d4752a8178df6f843b7d97f1207cc91e6657a.
 - Added transactional SQLite render-attempt ledger, optional monthly cap, completed/cancelled/failed/interrupted accounting, main and clipper integration, owner usage display and tests. No external billing; accepted failed/cancelled attempts count toward resource cap only. Proposed Studio integration contract documented; no changes to takatak-v1. New CI pending.
+
+- Added HTTP regression coverage for usage authorization, completed/cancelled accounting and 429 quota rejection before render. Clipper cleanup now executes before accounting finalization. CI pending.

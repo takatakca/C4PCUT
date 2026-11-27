@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 import engine
 import server
+from usage import Ledger
 from render_queue import RenderQueue, Cancelled
 
 class RenderAPITests(unittest.TestCase):
@@ -26,6 +27,7 @@ class RenderAPITests(unittest.TestCase):
             httpd=ThreadingHTTPServer(("127.0.0.1",0),server.Handler)
             httpd.storage=d
             httpd.persistent=False
+            httpd.ledger=Ledger(root,2)
             thread=threading.Thread(target=httpd.serve_forever,daemon=True)
             thread.start()
             q=RenderQueue()
@@ -83,6 +85,15 @@ class RenderAPITests(unittest.TestCase):
                         self.assertEqual(terminal(task)["status"],"cancelled")
                     self.assertEqual((folder/"export.mp4").read_bytes(),previous)
                     self.assertFalse((folder/"rendering.mp4").exists())
+                    code,raw=request("/api/usage")
+                    self.assertEqual(code,200)
+                    summary=json.loads(raw)
+                    self.assertEqual(summary["attempted_seconds"],2)
+                    self.assertEqual(summary["remaining_seconds"],0)
+                    self.assertEqual(summary["outcomes"]["completed"]["attempts"],1)
+                    self.assertEqual(summary["outcomes"]["cancelled"]["attempts"],1)
+                    self.assertEqual(request("/api/render",payload)[0],429)
+                    self.assertEqual(httpd.ledger.summary(),summary)
             finally:
                 q.shutdown()
                 httpd.shutdown()

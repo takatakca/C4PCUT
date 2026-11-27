@@ -324,10 +324,12 @@ class Handler(BaseHTTPRequestHandler):
                     temp.replace(folder / f"{index}.mp4")
                     outcome="completed"
                 finally:
-                    if ledger:
-                        ledger.finish(usage_id,outcome)
-                    temp.unlink(missing_ok=True)
-                    subtitle.unlink(missing_ok=True)
+                    try:
+                        temp.unlink(missing_ok=True)
+                        subtitle.unlink(missing_ok=True)
+                    finally:
+                        if ledger:
+                            ledger.finish(usage_id,outcome)
                 return self.reply({"url":f"/api/clipper/{job_id}/{job['clip_batch']}/{index}.mp4"})
             if path == "/api/render":
                 selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}))
