@@ -154,3 +154,5 @@
 ## Sequence audio monitor
 - PR #18 CI 45944325297 passed; merged at 0e6fc7ceae39208c9937cc5a3ee90c2e07b6dc89.
 - Added authenticated scoped soundtrack GET (music feature required), issuer allowlist, normalized WAV monitor load/cleanup, source-time music sync and drift correction, live gain controls, pause on cut/stop/stall, saved project reload. Gateway isolation and actual Chromium music scenarios added. Exact CI pending. Approximate browser mix, no FFmpeg limiter equivalence or public deployment. No billing changes.
+
+- CI 45944613873: standard tests passed; browser failed because string-based Playwright wait evaluation violates the existing CSP. HTTP logs confirm music upload and normalized soundtrack delivery (200). Replaced string waits with locator property assertions; retained CSP unchanged. Added generation guard for stale soundtrack requests and recoverable interrupted audio play. New CI pending.

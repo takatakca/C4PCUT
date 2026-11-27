@@ -117,3 +117,5 @@
 
 ## Audio monitor
 - PR #18 passed CI and merged. Private normalized soundtrack playback, gain and source-time synchronization implemented; tests pending. Browser audio mix is approximate and dependent on browser autoplay/volume support. No new payment or production deployment.
+
+- Audio CI 45944613873: standard tests pass, Chromium blocked by test-side unsafe-eval. Corrected locator assertions without relaxing CSP; hardened stale audio callbacks. Browser playback still pending exact-head validation.

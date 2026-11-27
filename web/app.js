@@ -7,8 +7,9 @@ let musicData=null, sourceBeats=null, musicName="", directorPlan=null;
 let account=null, accountRefreshing=false, accountInvalid=false, projectCount=null, usageState=null;
 const canFeature=name=>!!account&&!accountInvalid&&PlanUI.feature(account.capabilities,name);
 let clipBatch=null, clipCandidates=[], clipDownloads=new Map();
-let sequence=null, sequenceFrame=0, sequenceSeek=null, monitorURL=null, monitorPending=false;
+let sequence=null, sequenceFrame=0, sequenceSeek=null, monitorURL=null, monitorPending=false, monitorGeneration=0;
 function clearMonitorMusic(){
+  monitorGeneration++;
   const audio=$("monitor-audio");audio.pause();audio.removeAttribute("src");audio.load();
   if(monitorURL)URL.revokeObjectURL(monitorURL);monitorURL=null;monitorPending=false;
   $("monitor-mix").textContent="No soundtrack loaded";
@@ -16,30 +17,32 @@ function clearMonitorMusic(){
 async function loadMonitorMusic(){
   clearMonitorMusic();
   if(!job||!musicData||!canFeature("music"))return;
-  const id=job.id;
+  const id=job.id,generation=monitorGeneration;
   $("monitor-mix").textContent="Loading normalized soundtrack…";
   try{
     const response=await fetch("/api/soundtrack/"+id,{cache:"no-store"});
     if(!response.ok)throw new Error("Soundtrack unavailable");
     const blob=await response.blob();
-    if(job?.id!==id||!canFeature("music"))return;
+    if(job?.id!==id||generation!==monitorGeneration||!canFeature("music"))return;
     // Normalized stereo 48kHz PCM, at most 600 seconds plus WAV header.
     if(!blob.size||blob.size>116000000)throw new Error("Soundtrack too large");
     monitorURL=URL.createObjectURL(blob);$("monitor-audio").src=monitorURL;
     $("monitor-mix").textContent="Soundtrack ready · source-time alignment";
-  }catch(e){$("monitor-mix").textContent="Soundtrack preview unavailable; export unchanged";}
+  }catch(e){if(generation===monitorGeneration)$("monitor-mix").textContent="Soundtrack preview unavailable; export unchanged";}
 }
 function pauseMonitor(){ $("monitor-audio").pause(); }
 function syncMonitor(force=false){
   const video=$("video"), audio=$("monitor-audio"), state=sequence;
   if(!state)return;
-  video.volume=Number($("source-gain").value);
+  const gain=Number($("source-gain").value);
+  if(video.volume!==gain)video.volume=gain;
   if(!state.mix||!canFeature("music")||!monitorURL||video.paused||video.seeking||sequenceSeek!==null||video.readyState<3){pauseMonitor();return;}
   audio.volume=Number($("music-gain").value);audio.muted=video.muted;audio.playbackRate=video.playbackRate;
   if(audio.readyState<1||!Number.isFinite(audio.duration)||video.currentTime>=audio.duration){pauseMonitor();return;}
   if(force||Math.abs(audio.currentTime-video.currentTime)>.15)audio.currentTime=video.currentTime;
   if(audio.paused&&!monitorPending){
-    monitorPending=true;audio.play().then(()=>{if(sequence!==state||video.paused||video.seeking||sequenceSeek!==null)audio.pause();}).catch(()=>{if(sequence===state){state.mix=false;$("monitor-mix").textContent="Music playback unavailable; source audio continues";}}).finally(()=>{monitorPending=false;});
+    const generation=monitorGeneration;
+    monitorPending=true;audio.play().then(()=>{if(generation===monitorGeneration&&(sequence!==state||video.paused||video.seeking||sequenceSeek!==null))audio.pause();}).catch(error=>{if(generation===monitorGeneration&&sequence===state&&error.name!=="AbortError"){state.mix=false;$("monitor-mix").textContent="Music playback unavailable; source audio continues";}}).finally(()=>{if(generation===monitorGeneration)monitorPending=false;});
   }
 }
 $("monitor-audio").addEventListener("loadedmetadata",()=>{if(sequence)syncMonitor(true);});
