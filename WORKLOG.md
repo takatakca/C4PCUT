@@ -13,3 +13,8 @@
 ## Scene editing milestone
 - Added validated in/out edits, monochrome/warm/contrast render presets, effects lane and scene reset. Undo/redo now covers selection and scene edits.
 - Source monitor does not yet preview rendered effects; output uses real FFmpeg filters. Added validation and rendered-pixel tests; CI pending.
+
+## Caption milestone
+- Scene editing CI 45921202768 and timeline CI 45921157245 passed.
+- Added SRT validation, import, caption lane, source overlay, text editing, history, trim-aware subtitle remapping, MP4 selectable subtitles and SRT export.
+- Added optional local Faster Whisper adapter; no automatic downloads or hosted AI. Model inference not tested by standard CI. New caption tests pending.

@@ -8,6 +8,9 @@ import tempfile
 import threading
 from urllib.parse import urlsplit
 import engine
+import captions
+import os
+import sys
 
 ROOT = Path(__file__).resolve().parent / "web"
 LOCK = threading.Lock()
@@ -55,6 +58,8 @@ class Handler(BaseHTTPRequestHandler):
         parts = path.split("/")
         if len(parts) == 4 and parts[1:3] == ["api", "export"] and parts[3] in JOBS:
             return self.file(JOBS[parts[3]]["folder"] / "export.mp4", "video/mp4", True)
+        if len(parts) == 4 and parts[1:3] == ["api", "captions"] and parts[3] in JOBS:
+            return self.file(JOBS[parts[3]]["folder"] / "export.srt", "application/x-subrip")
         if len(parts) == 5 and parts[1:3] == ["api", "thumbnail"] and parts[3] in JOBS:
             name = parts[4]
             if name.endswith(".jpg") and name[:-4].isascii() and name[:-4].isdigit() and len(name) <= 6:
@@ -92,7 +97,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise
                 JOBS[job_id] = {"folder": folder, "metadata": metadata}
                 return self.reply({"id": job_id, **metadata})
-            if not 0 < size <= 32768:
+            if not 0 < size <= 262144:
                 raise ValueError("Invalid request size")
             payload = json.loads(self.rfile.read(size))
             job_id = payload["id"]
@@ -106,15 +111,39 @@ class Handler(BaseHTTPRequestHandler):
                 for item in visuals:
                     item["thumbnail"] = f"/api/thumbnail/{job_id}/{item['id']}.jpg"
                 return self.reply({"visuals": visuals})
+            if path == "/api/captions/import":
+                return self.reply({"cues": captions.parse_srt(payload["srt"], job["metadata"]["duration"])})
+            if path == "/api/transcribe":
+                model = os.environ.get("C4PCUT_WHISPER_MODEL")
+                if not model or not Path(model).is_dir():
+                    return self.reply({"error": "Configure C4PCUT_WHISPER_MODEL with a local Faster Whisper model directory"}, 503)
+                if not job["metadata"]["audio"]:
+                    return self.reply({"error": "No source audio to transcribe"}, 400)
+                result = engine.run([sys.executable, str(Path(__file__).resolve().parent / "transcribe.py"), str(source), model], 600)
+                cues = json.loads(result.stdout)
+                duration = job["metadata"]["duration"]
+                cues = [{**c, "end": min(c["end"], duration)} for c in cues if c["start"] < duration]
+                return self.reply({"cues": captions.validate(cues, duration)})
             if path == "/api/render":
                 selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}))
+                cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
+                mapped = captions.remap(cues, selected)
                 temp = job["folder"] / "rendering.mp4"
+                subtitle = job["folder"] / "rendering.srt"
+                exported_srt = job["folder"] / "export.srt"
                 try:
-                    engine.render(source, temp, selected, job["metadata"]["audio"])
+                    if mapped:
+                        subtitle.write_text(captions.to_srt(mapped), encoding="utf-8")
+                    engine.render(source, temp, selected, job["metadata"]["audio"], subtitle if mapped else None)
                     temp.replace(job["folder"] / "export.mp4")
+                    if mapped:
+                        subtitle.replace(exported_srt)
+                    else:
+                        exported_srt.unlink(missing_ok=True)
                 finally:
                     temp.unlink(missing_ok=True)
-                return self.reply({"url": "/api/export/" + job_id})
+                    subtitle.unlink(missing_ok=True)
+                return self.reply({"url": "/api/export/" + job_id, "captions_url": "/api/captions/" + job_id if mapped else None})
             return self.reply({"error": "Not found"}, 404)
         except (ValueError, KeyError, TypeError):
             return self.reply({"error": "Invalid input or unsupported media"}, 400)

@@ -72,7 +72,7 @@ def validate_edits(ids, clips, edits):
         validated[key] = {**base, "start": a, "end": b, "effect": effect}
     return [validated.get(str(c["id"]), c) for c in selected]
 
-def render(source, output, clips, audio):
+def render(source, output, clips, audio, subtitle_path=None):
     # Normalize timestamps and concatenate independently trimmed video/audio streams.
     filters, inputs = [], []
     for i, c in enumerate(clips):
@@ -84,9 +84,14 @@ def render(source, output, clips, audio):
             inputs.append(f"[a{i}]")
     filters.append("".join(inputs) + f"concat=n={len(clips)}:v=1:a={int(audio)}[v]" + ("[a]" if audio else ""))
     args = ["ffmpeg", "-nostdin", "-y", "-hide_banner", "-threads", "2", "-i", str(source),
-            "-filter_complex_threads", "2", "-filter_complex", ";".join(filters), "-map", "[v]"]
+            ]
+    if subtitle_path is not None:
+        args += ["-f", "srt", "-i", str(subtitle_path)]
+    args += ["-filter_complex_threads", "2", "-filter_complex", ";".join(filters), "-map", "[v]"]
     if audio:
         args += ["-map", "[a]", "-c:a", "aac", "-b:a", "160k"]
+    if subtitle_path is not None:
+        args += ["-map", "1:0", "-c:s", "mov_text", "-disposition:s:0", "default"]
     args += ["-c:v", "libx264", "-threads", "2", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(output)]
     run(args, 300)
     return Path(output)

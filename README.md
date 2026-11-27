@@ -22,3 +22,6 @@ See [project status](docs/PROJECT_STATUS.md) and [worklog](WORKLOG.md).
 Timeline enhancement: analysis also generates genuine scene thumbnails and source audio peak envelopes. Click the ruler to seek; undo/redo restores scene selection within the active session. Effects, captions and music tracks remain placeholders.
 
 Click a scene to select it, edit its in/out times (seconds) and choose an effect, then Apply. Undo/redo covers selection and edits. The monitor shows source footage; the exported MP4 reflects trims and effects.
+
+## Captions
+Import an SRT file or optionally generate captions on the local CPU. Install optional dependencies with `python -m pip install -r requirements-ai.txt`, obtain a compatible local CTranslate2 Whisper model separately, and start with `C4PCUT_WHISPER_MODEL=/absolute/model/path python server.py`. No model downloads or hosted AI are triggered by the application. The source preview displays timed captions; export embeds a selectable MP4 subtitle track and offers a remapped SRT. Burned-in animated subtitles and word timing remain future work. Local transcription is optional and requires separate model testing.

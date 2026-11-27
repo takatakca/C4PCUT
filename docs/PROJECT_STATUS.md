@@ -18,3 +18,7 @@
 
 ## Scene editing
 - Per-scene non-destructive trim and three fixed render presets implemented with server validation; effects track shows chosen presets. Source monitor remains unprocessed. No arbitrary filter injection, independent layers, animated effects or live rendered preview yet. CI pending.
+
+## Captions
+- Source-time SRT import and text editing, timeline lane and preview overlay; output-time remapping across selected trims, selectable MP4 subtitle track and SRT export.
+- Optional CPU Faster Whisper adapter requires installed dependency and a separately provisioned local model. Actual model inference not yet verified. Word-level timing, animated burn-in and caption timing editing remain planned. Caption CI pending.
