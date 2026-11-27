@@ -128,3 +128,5 @@
 
 ## Graphic title presets
 - PR #21 passed CI and merged. Fixed banner styles and lower-third position implemented with saved-project compatibility and real render tests. New CI pending. Uploaded image and video overlays, live TAKATAK integration, billing and isolated production deployment remain outstanding.
+
+- Graphic titles CI: Chromium passed; one FFmpeg frame-extraction test failed. Corrected seek timestamp; latest CI pending.

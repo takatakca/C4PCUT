@@ -54,7 +54,7 @@ class TitleTests(unittest.TestCase):
             layer=titles.to_ass(titles.validate([{"start":0,"end":1,"text":"ARTIST","position":"lower_left","style":"purple_banner"}],2))
             self.assertIn("lower_left_purple_banner",layer)
             engine.render(src,out,[{"start":0,"end":2}],False,title_ass=layer)
-            frame=subprocess.run(["ffmpeg","-v","error","-ss",".5","-i",str(out),"-frames:v","1","-f","rawvideo","-pix_fmt","rgb24","-"],check=True,capture_output=True).stdout
+            frame=subprocess.run(["ffmpeg","-v","error","-ss","0.5","-i",str(out),"-frames:v","1","-f","rawvideo","-pix_fmt","rgb24","-"],check=True,capture_output=True).stdout
             # A purple box, not only white text, must survive the encoder.
             colored=sum(1 for r,g,b in zip(frame[0::3],frame[1::3],frame[2::3]) if r>65 and b>90 and b>g+35 and r>g+20)
             self.assertGreater(colored,50)
