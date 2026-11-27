@@ -3,3 +3,5 @@ Owner direction 2026-11-26: match CapCut pricing. Canadian App Store reference c
 
 ## Access policy
 The validated catalog only describes monthly prices. Every plan, including Free, requires an explicit dedicated C4PCUT grant from the future authoritative TAKATAK service. Grants must match the authenticated client, product c4pcut, known plan, active status, and a valid UTC epoch-second interval. Expired, suspended, cancelled, past-due or unknown grants fail closed. Gateway assertions expire no later than the grant. This is a conservative proposed access policy, not a definition of commercial grace periods. No paid-plan feature allowances have been selected. Do not derive access from the displayed price, browser selection, or Social subscription.
+
+The private pilot grant registry is an operator-managed access reference, not an indication that a plan has been paid. It does not change monthly prices or create subscriptions. Actual paid-plan allowances and billing integration remain pending.

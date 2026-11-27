@@ -23,3 +23,5 @@ Verified V1 main 1bda260220bf8589119417578933bea1e8c5af55: existing workspace-ap
 Pricing policy: see docs/PRICING.md and config/pricing.ca.json. The disabled catalog never grants access; the issuer still requires authoritative dedicated product entitlement. No Social bypass.
 
 The reference issuer now requires a dedicated grant with {clientId,product:'c4pcut',active:true,plan:'free'|'standard'|'pro',status:'active',validFrom,validUntil}, where dates are integer UTC epoch seconds. It rechecks validity at issuance and caps assertion expiry at grant expiry. Legacy active-only callbacks are rejected. No authoritative V1 grant implementation exists yet; the policy remains a server-only reference. No commercial grace periods, quota allowances or payments were approved.
+
+An offline private grant registry and Node lookup adapter are available for a reviewed pilot (docs/PRIVATE_GRANTS.md). The lookup can be injected into the reference issuer; production must still use the authoritative TAKATAK product entitlement service. No live issuer or gateway configured.

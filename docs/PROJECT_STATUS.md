@@ -79,3 +79,6 @@
 
 ## Plan grant policy
 - Validated disabled Canadian monthly catalog separately from authorization; explicit dedicated current plan grant required for reference issuer, including Free. Grant expiry caps assertion lifetime. Tests added, latest CI pending. No real V1 product entitlement store, payments, annual prices or per-plan allowances.
+
+## Private grant registry reference
+- PR #9 passed CI and merged. Optional operator-managed local access registry with explicit grants, revocation and audit; Node lookup rereads state. Tests added; CI pending. No real customers provisioned. Not authoritative V1 billing, live SSO or production deployment.
