@@ -51,3 +51,6 @@ The project picker also lists unsaved/unreadable imported folders as delete-only
 
 ## Rendering queue and quality
 Main export submits a bounded in-memory queue (one worker, maximum three active jobs, one per project). The interface polls measured FFmpeg output time and offers cancellation. All other media mutations are blocked while the queue is active to keep source/soundtrack stable. Completed export URLs refer to the latest project export. Queue records are lost on restart; clipper rendering remains synchronous. QHD/4K portrait and landscape presets are available with fixed compact/standard/high CRF profiles. Explicit QHD renders are limited to 120 seconds and 4K to 60 seconds; upscaling cannot recover missing source detail. High-resolution real-world performance is not yet benchmarked. Progress is estimated from encoded timestamps, and a cancellation arriving after publication may complete normally.
+
+## Private owner access
+Optional C4PCUT_OWNER_PASSWORD enables Basic authentication for the entire editor and media API (except minimal health check). Use a unique long password and a trusted local/SSH-tunnel connection. The owner Compose overlay requires a configured password. Cross-origin mutation requests and missing CSRF tokens are rejected. This is a single-owner access boundary, not TAKATAK account integration or a public multi-tenant service.

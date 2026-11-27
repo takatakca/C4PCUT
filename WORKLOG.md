@@ -64,3 +64,8 @@
 - Added queue ordering/cancel, render execution and preset validation tests. New CI pending. Clipper still renders synchronously, queue not durable, no rendered preview or 4K benchmark yet.
 
 - Saved-project CI 45922606787 passed. Added real HTTP submission/poll/download integration coverage, controlled cancellation test protecting previous export, and portable progress-file reading. Latest CI pending.
+
+## Owner access milestone
+- PR #3 merged to main at b888e7440fae543825c25a2576bb767746af29d4; CI 45922817169 succeeded.
+- Added optional private owner authentication, protected static editor/session/media and mutation endpoints, same-origin mutation checks, constant-time credential comparisons, restrictive browser headers, owner Compose overlay and HTTP security tests. Health endpoint remains minimal and anonymous. Latest CI pending.
+- This is not Studio SSO or multi-tenant isolation; no deployment, new hosting or modifications to takatak-v1.

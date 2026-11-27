@@ -1,0 +1,4 @@
+services:
+  c4pcut:
+    environment:
+      C4PCUT_OWNER_PASSWORD: "${C4PCUT_OWNER_PASSWORD:?Set a strong owner password in your shell}"
