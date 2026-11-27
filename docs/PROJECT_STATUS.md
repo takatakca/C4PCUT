@@ -37,3 +37,7 @@
 
 ## AI Director
 - Implemented preset and opt-in local Ollama edit planning with validated JSON, timeline application after review, and undo. Supports one chronological edit sequence from existing scenes; no multi-clip batch generation yet. Ollama receives metadata only, not imagery; live inference and new CI pending.
+
+## Auto Clipper
+- Implemented up to ten heuristic source-window suggestions, 15/30/60-second target, three fixed styles, individual and sequential batch export using current caption and music settings without replacing main timeline.
+- Candidate ranking uses source scene boundaries, caption coverage and audio onsets; fewer clips are returned when windows would overlap excessively. Temporary batch files replaced by new suggestions. Model-based visual ranking, output aspect presets, durable queues and batch persistence remain planned. CI pending.
