@@ -159,3 +159,7 @@
 
 ## Timeline ordered scenes and integrated audio
 - PR #19 CI 45948907914 passed and merged at 5b7e986b52f192fad1386dd94f1f739a1272638d. PR #20 independent CI 45949093779 passed. Reconciled both branches using a two-parent merge preserving audio monitor, reordered playback, project manifests and backend order validation. Added combined Chromium reorder/undo/redo/play/save/reopen/reset scenario. Existing real reversed-color export, caption remap and legacy project tests preserved. Exact merged-head CI pending. No fees, billing or deployment.
+
+## Output title track
+- PR #20 combined CI 45949380876 succeeded; merged at 339edcdad602b7b95830a44611e8bca32e44846a.
+- Added bounded independent output-time title layer, fixed ASS styles, main render compositing with optional soft or burned captions, project persistence, undo/redo, title controls and approximate sequence preview. Added real pixel/soft-caption coexistence and project tests. New CI pending. No video/image overlay or production deployment; no new fees.

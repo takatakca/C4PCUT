@@ -9,6 +9,7 @@ import threading
 from urllib.parse import urlsplit
 import engine
 import captions
+import titles
 import music
 import director
 import clipper
@@ -450,6 +451,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply({"url":f"/api/clipper/{job_id}/{job['clip_batch']}/{index}.mp4"})
             if path == "/api/render":
                 selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}),payload.get("order"))
+                title_items=titles.validate(payload.get("titles",[]),job["metadata"]["duration"])
                 cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
                 mapped = captions.remap(cues, selected)
                 caption_mode = captions.validate_mode(payload.get("caption_mode", "soft"))
@@ -468,6 +470,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.policy.render(preset,framing,quality,duration,job["metadata"],caption_mode,use_music)
                 folder=job["folder"]
                 audio=job["metadata"]["audio"]
+                title_items=titles.for_output(title_items,duration)
+                title_ass=titles.to_ass(title_items) if title_items else None
                 def work(cancel,progress):
                     temp=folder/"rendering.mp4"
                     subtitle=folder/"rendering.srt"
@@ -478,7 +482,7 @@ class Handler(BaseHTTPRequestHandler):
                         burn=captions.to_ass(mapped,caption_mode) if mapped and caption_mode!="soft" else None
                         engine.render(source,temp,selected,audio,subtitle if mapped and caption_mode=="soft" else None,
                                       music_path,music_gain,source_gain,burn_ass=burn,preset=preset,framing=framing,
-                                      quality=quality,cancel=cancel,progress=progress)
+                                      quality=quality,cancel=cancel,progress=progress,title_ass=title_ass)
                         if cancel.is_set():
                             raise Cancelled()
                         temp.replace(folder/"export.mp4")

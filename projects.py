@@ -8,6 +8,7 @@ import secrets
 from pathlib import Path
 import engine
 import captions
+import titles
 import music
 import studio_pack
 
@@ -65,6 +66,7 @@ def validate_state(payload, clips, metadata, has_music):
         brief=studio_pack.parse_brief(brief)
     return {"name":name,"selected":selected,"order":order,"edits":edits,"source_mime":mime,"studio_brief":brief,
             "cues":captions.validate(payload.get("cues",[]),metadata["duration"]),
+            "titles":titles.validate(payload.get("titles",[]),metadata["duration"]),
             "caption_mode":captions.validate_mode(payload.get("caption_mode","soft")),
             "use_music":use_music,"music_gain":music.validate_gain(payload.get("music_gain",.35)),
             "source_gain":music.validate_gain(payload.get("source_gain",1)),

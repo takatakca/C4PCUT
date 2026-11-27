@@ -122,3 +122,6 @@
 
 ## Timeline order and audio integration
 - PR #19 merged after successful CI; independent Timeline PR #20 CI also green. Explicit scene ordering and project persistence integrated with source-time audio preview. Combined browser reorder test added. Latest combined CI required before main merge. Full overlapping multi-track editing, live TAKATAK integration, billing and worker isolation/deployment remain outstanding.
+
+## Output title layer
+- Combined timeline/audio PR #20 passed CI and merged. Independent output-time text titles implemented with bounded fixed-position styles and main MP4 burn-in, persisted projects and browser preview. CI pending; image/video overlays, live V1/billing, isolated deployment remain outstanding.
