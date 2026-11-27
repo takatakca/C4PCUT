@@ -125,3 +125,6 @@
 
 ## Output title layer
 - Combined timeline/audio PR #20 passed CI and merged. Independent output-time text titles implemented with bounded fixed-position styles and main MP4 burn-in, persisted projects and browser preview. CI pending; image/video overlays, live V1/billing, isolated deployment remain outstanding.
+
+## Graphic title presets
+- PR #21 passed CI and merged. Fixed banner styles and lower-third position implemented with saved-project compatibility and real render tests. New CI pending. Uploaded image and video overlays, live TAKATAK integration, billing and isolated production deployment remain outstanding.

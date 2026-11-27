@@ -99,3 +99,5 @@ Edited sequence audio monitor uses the normalized private WAV soundtrack and sou
 Timeline output-order strip supports drag-and-drop and earlier/later buttons. Explicit selected-scene permutation drives playback and FFmpeg export; saved projects preserve order, old projects default to chronological. Source tracks remain chronological; captions and music follow source intervals into output order. No arbitrary overlapping multi-layer editing yet.
 
 Output title track: up to 12 non-overlapping plain-text titles, top/center, anchored to edited output time, persisted with projects and burned into main MP4 alongside optional captions. Sequence playback provides approximate preview. Titles extending past shortened output are clipped or hidden. Auto Clipper remains independent; arbitrary video/image layers are not yet implemented.
+
+Graphic title presets: classic, purple banner and dark banner; top, center or lower-left third above normal caption area. Fixed colors and styles only; existing projects default to classic. Monitor styling is approximate; MP4 composition uses libass.
