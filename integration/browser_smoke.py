@@ -20,7 +20,7 @@ def run():
         fixture=root/"fixture.mp4"
         subprocess.run(["ffmpeg","-hide_banner","-loglevel","error","-f","lavfi","-i","color=c=blue:s=320x240:r=24:d=2","-f","lavfi","-i","sine=frequency=440:sample_rate=44100:duration=2","-c:v","libx264","-pix_fmt","yuv420p","-c:a","aac","-shortest","-threads","2",str(fixture)],check=True,timeout=30)
         config=root/"workspaces.json"
-        config.write_text(json.dumps({"pilot":{"password_sha256":hashlib.sha256(PASSWORD.encode()).hexdigest(),"monthly_render_seconds":2,"capabilities":{"max_output_edge":1280,"max_render_seconds":30,"max_projects":1,"qualities":["compact"],"features":[]}}}))
+        config.write_text(json.dumps({"pilot":{"password_sha256":hashlib.sha256(PASSWORD.encode()).hexdigest(),"monthly_render_seconds":2,"capabilities":{"max_output_edge":1280,"max_render_seconds":30,"max_projects":1,"qualities":["compact"],"features":["music"]}}}))
         env={k:v for k,v in os.environ.items() if not k.startswith("C4PCUT_")}
         env.update(C4PCUT_DATA_DIR=str(root/"data"),C4PCUT_WORKSPACES_FILE=str(config))
         with (root/"server.log").open("w+") as log:
@@ -53,7 +53,12 @@ def run():
                     expect(page.locator("#summary")).to_contain_text("1 / 1",timeout=30000)
                     expect(page.locator("#transcribe")).to_be_disabled()
                     expect(page.locator("#clipper-suggest")).to_be_disabled()
-                    expect(page.locator("#music-file")).to_be_disabled()
+                    expect(page.locator("#music-file")).to_be_enabled()
+                    soundtrack=root/"music.wav"
+                    subprocess.run(["ffmpeg","-v","error","-f","lavfi","-i","sine=frequency=660:duration=2","-c:a","pcm_s16le",str(soundtrack)],check=True,timeout=15)
+                    page.locator("#music-file").set_input_files(str(soundtrack))
+                    expect(page.locator("#monitor-mix")).to_contain_text("Soundtrack ready",timeout=30000)
+                    expect(page.locator("#monitor-audio")).to_have_js_property("readyState",4,timeout=15000)
                     page.locator("#clip-0").click()
                     page.locator("#effect").select_option("mono")
                     page.locator("#apply-edit").click()
@@ -74,7 +79,10 @@ def run():
                     page.locator("#sequence-position").fill("0.5")
                     expect(page.locator("#sequence-clock")).to_have_text("00:00.500 / 00:01.000")
                     page.locator("#play-sequence").click()
+                    expect(page.locator("#sequence-note")).to_contain_text("approximate audio mix",timeout=3000)
+                    expect(page.locator("#monitor-audio")).to_have_js_property("paused",False,timeout=5000)
                     expect(page.locator("#sequence-note")).to_contain_text("Sequence complete",timeout=10000)
+                    assert page.locator("#monitor-audio").evaluate("(a) => a.paused")
                     expect(page.locator("#sequence-clock")).to_have_text("00:01.000 / 00:01.000")
                     assert page.locator("#video").evaluate("(v) => v.paused && v.currentTime >= 1.25 && v.currentTime < 1.6")
                     page.locator("#undo").click()
@@ -98,6 +106,7 @@ def run():
                     page.once("dialog",lambda dialog:dialog.accept())
                     page.locator("#open-project").click()
                     expect(page.locator("#log")).to_contain_text("Opened saved project",timeout=30000)
+                    expect(page.locator("#monitor-mix")).to_contain_text("Soundtrack ready")
                     page.once("dialog",lambda dialog:dialog.accept())
                     page.locator("#delete-project").click()
                     expect(page.locator("#file")).to_be_enabled(timeout=15000)
