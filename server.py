@@ -18,6 +18,7 @@ import usage
 import workspaces
 import studio_pack
 import studio_gateway
+import capabilities
 import hashlib
 import time
 from render_queue import RenderQueue, Cancelled
@@ -61,6 +62,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.storage=workspace.storage
                 self.ledger=workspace.ledger
                 self.csrf_token=workspace.token
+                self.policy=workspace.policy
                 return True
         elif owner_auth.authorized(self.headers.get("Authorization"),getattr(self.server,"owner_digest",None)):
             self.scope=None
@@ -68,6 +70,7 @@ class Handler(BaseHTTPRequestHandler):
             self.storage=getattr(self.server,"storage",None)
             self.ledger=getattr(self.server,"ledger",None)
             self.csrf_token=TOKEN
+            self.policy=None
             return True
         data=b'{"error":"Private editor authentication required"}'
         self.send_response(401)
@@ -121,7 +124,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/usage":
             return self.reply(self.ledger.summary() if self.ledger else {"enabled":False})
         if path == "/api/session":
-            return self.reply({"token": self.csrf_token, "workspace": self.scope})
+            return self.reply({"token": self.csrf_token, "workspace": self.scope, "capabilities":self.policy.public() if self.policy else None})
         static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
         if path in static:
             name, mime = static[path]
@@ -200,6 +203,12 @@ class Handler(BaseHTTPRequestHandler):
         return self.dispatch_post(path)
 
     def dispatch_post(self,path):
+        # Scope restrictions to new operations, not project recovery/deletion or old downloads.
+        feature={"/api/transcribe":"transcribe","/api/clipper/suggest":"clipper","/api/clipper/render":"clipper","/api/music/analyze":"music","/api/music/cuts":"music","/api/studio/import-pack":"studio_pack"}.get(path)
+        if path.startswith("/api/music/import/"):
+            feature="music"
+        if self.policy and feature and feature not in self.policy.features:
+            return self.reply({"error":"Feature unavailable in this workspace"},403)
         if path in {"/api/render/status","/api/render/cancel"}:
             try:
                 self.connection.settimeout(10)
@@ -222,7 +231,7 @@ class Handler(BaseHTTPRequestHandler):
             size = int(self.headers.get("Content-Length", "0"))
             self.connection.settimeout(60)
             if path == "/api/import":
-                if not 0 < size <= engine.MAX_BYTES or sum(1 for p in Path(self.storage).iterdir() if projects.ID.fullmatch(p.name) and p.is_dir()) >= projects.MAX_PROJECTS:
+                if not 0 < size <= engine.MAX_BYTES or sum(1 for p in Path(self.storage).iterdir() if projects.ID.fullmatch(p.name) and p.is_dir()) >= (self.policy.max_projects if self.policy else projects.MAX_PROJECTS):
                     raise ValueError("Maximum 250 MB per video and 8 imports per session")
                 job_id = secrets.token_hex(16)
                 folder = Path(self.storage) / job_id
@@ -344,6 +353,8 @@ class Handler(BaseHTTPRequestHandler):
                 job["clips"] = music.beat_cuts(job["metadata"]["duration"], data["beats"], payload.get("interval", 2))
                 return self.reply({"clips": job["clips"]})
             if path == "/api/director":
+                if self.policy and payload.get("provider")=="ollama":
+                    self.policy.require("ollama")
                 cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
                 use_music = payload.get("use_music", False)
                 if type(use_music) is not bool:
@@ -393,6 +404,8 @@ class Handler(BaseHTTPRequestHandler):
                 preset,framing,quality=payload.get("preset","original"),payload.get("framing","fit"),payload.get("quality","standard")
                 duration=sum(c["end"]-c["start"] for c in selected)
                 engine.validate_render_budget(preset,framing,duration,quality)
+                if self.policy:
+                    self.policy.render(preset,framing,quality,duration,job["metadata"],caption_mode,use_music)
                 ledger=self.ledger
                 usage_id=ledger.reserve(job_id,"clipper",duration) if ledger else None
                 outcome="failed"
@@ -427,7 +440,10 @@ class Handler(BaseHTTPRequestHandler):
                 music_gain = music.validate_gain(payload.get("music_gain", .35))
                 source_gain = music.validate_gain(payload.get("source_gain", 1))
                 preset,framing,quality=payload.get("preset","original"),payload.get("framing","fit"),payload.get("quality","standard")
-                engine.validate_render_budget(preset,framing,sum(c["end"]-c["start"] for c in selected),quality)
+                duration=sum(c["end"]-c["start"] for c in selected)
+                engine.validate_render_budget(preset,framing,duration,quality)
+                if self.policy:
+                    self.policy.render(preset,framing,quality,duration,job["metadata"],caption_mode,use_music)
                 folder=job["folder"]
                 audio=job["metadata"]["audio"]
                 def work(cancel,progress):
@@ -462,6 +478,8 @@ class Handler(BaseHTTPRequestHandler):
                     raise
                 return self.reply({"render_id":ident},202)
             return self.reply({"error": "Not found"}, 404)
+        except capabilities.CapabilityDenied:
+            return self.reply({"error":"Operation exceeds workspace capabilities"},403)
         except usage.QuotaExceeded:
             return self.reply({"error":"Monthly render-attempt quota exceeded"},429)
         except (ValueError, KeyError, TypeError):

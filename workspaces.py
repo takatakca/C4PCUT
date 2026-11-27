@@ -6,6 +6,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 import owner_auth
 import usage
+import capabilities
 
 SLUG=re.compile(r"[a-z0-9][a-z0-9-]{0,47}")
 DIGEST=re.compile(r"[a-f0-9]{64}")
@@ -19,6 +20,7 @@ class Workspace:
     ledger: usage.Ledger
     token: str=field(default_factory=lambda:secrets.token_urlsafe(32))
     jobs: dict=field(default_factory=dict)
+    policy: capabilities.Policy | None=None
 
 def load(config, storage):
     """Read administrator-provisioned SHA-256 digests of high-entropy passwords.
@@ -34,7 +36,7 @@ def load(config, storage):
     for slug,record in records.items():
         if not isinstance(slug,str) or not SLUG.fullmatch(slug) or slug=="owner":
             raise ValueError("Invalid workspace slug")
-        if not isinstance(record,dict) or set(record)-{"password_sha256","monthly_render_seconds"}:
+        if not isinstance(record,dict) or set(record)-{"password_sha256","monthly_render_seconds","capabilities"}:
             raise ValueError("Invalid workspace record")
         digest=record.get("password_sha256")
         if not isinstance(digest,str) or not DIGEST.fullmatch(digest):
@@ -42,18 +44,19 @@ def load(config, storage):
         limit=record.get("monthly_render_seconds")
         if limit is not None and (type(limit) is not int or not 0<=limit<=999999999):
             raise ValueError("Invalid workspace quota")
-        validated.append((slug,bytes.fromhex(digest),limit))
+        policy=capabilities.parse(record["capabilities"]) if "capabilities" in record else None
+        validated.append((slug,bytes.fromhex(digest),limit,policy))
     root=Path(storage)/"workspaces"
     if root.is_symlink():
         raise ValueError("Unsafe workspace root")
     root.mkdir(mode=0o700,exist_ok=True)
     result={}
-    for slug,digest,limit in validated:
+    for slug,digest,limit,policy in validated:
         folder=root/slug
         if folder.is_symlink():
             raise ValueError("Unsafe workspace directory")
         folder.mkdir(mode=0o700,exist_ok=True)
-        result[slug]=Workspace(slug,folder,digest,usage.Ledger(folder,limit))
+        result[slug]=Workspace(slug,folder,digest,usage.Ledger(folder,limit),policy=policy)
     return result
 
 def authenticate(header, registry):

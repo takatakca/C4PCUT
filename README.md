@@ -75,3 +75,7 @@ The reference issuer validates an explicit, current C4PCUT product grant for eve
 Private grant registry reference: see docs/PRIVATE_GRANTS.md for offline explicit provisioning and revocation, audit history and read-only Node lookup. No actual clients were provisioned and no invoices are generated.
 
 A read-only V1 GrowthSubscription adapter candidate is available in integration/v1-billing-adapter.mjs with explicit rollout flag and dedicated proposed plan keys. It is not connected to live V1 or Stripe; mocked integration tests exercise the contract.
+
+Commercial catalog preflight candidate checks the proposed disabled C4PCUT product against V1 ProductCatalog shape, without mutation. See docs/V1_CATALOG_HANDOFF.md.
+
+Optional private workspace capability profiles constrain export size/quality/duration, projects and selected AI/media features, before render quota reservation. No commercial plan allowances are assigned yet; see docs/DEPLOYMENT.md.
