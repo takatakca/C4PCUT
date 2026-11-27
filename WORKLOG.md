@@ -124,3 +124,7 @@
 ## Signed plan capability mapping
 - PR #11 CI 45936276046 passed; merged at cc5ff3a388000bcd0a72ba8e1d8e9ff5d8f76557.
 - Gateway v3 mandatory signed plan claim, explicit three-plan config, restrictive workspace intersection and per-request quota cap on existing ledger. Tests cover legacy rejection, plan changes, intersection and Node/Python signatures. New CI pending. No approved allowance defaults, live V1 changes or payment activation.
+
+## Editor account and usage panel
+- PR #12 CI 45936556210 passed; merged at 31d8bc5dca953893af9fc90167d3b6f50cd6d09d.
+- Added authenticated plan/capability display, usage meter, manual and idle refresh, visible capability gates and workspace-change reload. Pure UI policy tests added to CI. No commercial allowances, checkout, actual V1 integration or public deployment. Latest CI pending; browser interaction not independently exercised yet.

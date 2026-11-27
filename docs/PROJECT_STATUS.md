@@ -94,3 +94,6 @@
 
 ## Signed plan capability mapping
 - PR #11 passed CI and merged. Gateway v3 signs plan, requires explicit capability profiles and applies intersection and effective monthly cap. New CI pending. No approved commercial quota values, actual V1 issuer or deployment.
+
+## Editor account UI
+- PR #12 CI passed and merged. Editor account and usage panel added with refresh and presentation-only gating. Server enforcement unchanged. Pure JS tests added; new CI pending, real browser smoke not yet verified. Live V1 and billing remain unconnected.
