@@ -4,6 +4,34 @@ const commands = ["project = import_media()", "metadata = probe_media(project)",
 let token, job, clips = [], selected = new Set(), current = -1, busy = false, objectURL;
 let visuals = new Map(), history = [], future = [], edits = {}, cues = [], activeCue = -1;
 let musicData=null, sourceBeats=null, musicName="", directorPlan=null;
+let clipBatch=null, clipCandidates=[], clipDownloads=new Map();
+function clearClipper(){clipBatch=null;clipCandidates=[];clipDownloads.clear();$("clipper-results").replaceChildren();$("clipper-status").textContent="No current suggestions";}
+function clipperButtons(){
+  $("clipper-suggest").disabled=busy||!clips.length;
+  $("clipper-render-all").disabled=busy||!clipBatch||!clipCandidates.length;
+  for(const id of ["clipper-target","clipper-count","clipper-style"])$(id).disabled=busy;
+  $("clipper-results").querySelectorAll("button").forEach(b=>b.disabled=busy);
+}
+function clipperSettings(){return {cues,caption_mode:$("caption-mode").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)};}
+function drawClipper(){
+  const parent=$("clipper-results");parent.replaceChildren();
+  for(const c of clipCandidates){
+    const card=document.createElement("div");card.className="clipper-card";
+    const title=document.createElement("strong");title.textContent="Clip "+(c.id+1)+" · "+c.duration.toFixed(1)+"s";card.append(title);
+    const detail=document.createElement("small");detail.textContent=format(c.start)+" – "+format(c.end)+" · "+c.onsets+" onsets";card.append(detail);
+    const row=document.createElement("div");row.className="clipper-actions";
+    const preview=document.createElement("button");preview.textContent="Preview source";preview.onclick=()=>{$("video").currentTime=c.start;};row.append(preview);
+    const render=document.createElement("button");render.textContent="Render";render.onclick=()=>action(async()=>{await renderClip(c);});row.append(render);
+    if(clipDownloads.has(c.id)){const a=document.createElement("a");a.href=clipDownloads.get(c.id);a.textContent="Download MP4";a.download="c4pcut-clip-"+(c.id+1)+".mp4";row.append(a);}
+    card.append(row);parent.append(card);
+  }
+  clipperButtons();
+}
+async function renderClip(c){
+  log("Rendering promotional clip "+(c.id+1)+"…");
+  const result=await request("/api/clipper/render",{id:job.id,batch:clipBatch,index:c.id,...clipperSettings()});
+  clipDownloads.set(c.id,result.url);drawClipper();log("Promotional clip "+(c.id+1)+" ready");
+}
 function clearDirector(){directorPlan=null;$("director-result").textContent="No pending plan";}
 function beatData(){return $("use-music").checked?musicData:sourceBeats;}
 function resetMusic(){musicData=null;sourceBeats=null;musicName="";$("use-music").checked=false;$("music-gain").value=.35;$("source-gain").value=1;}
@@ -44,6 +72,7 @@ function updateButtons() {
   $("file").disabled = busy;
   $("analyze").disabled = busy || !job;
   $("render").disabled = busy || !selected.size;
+  clipperButtons();
   $("director-plan").disabled=busy||!clips.length;
   $("director-apply").disabled=busy||!directorPlan;
   $("cinematic").disabled=busy||!selected.size;
@@ -133,13 +162,13 @@ async function action(fn){
 $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)return;action(async()=>{
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
   step(0);log("Importing "+file.name);const result=await request("/api/import",file,true);
-  job=result;clearDirector();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
+  job=result;clearDirector();clearClipper();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
   if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;
   $("format").textContent=job.width+" × "+job.height;step(1,true);log("Media verified · "+format(job.duration));
 });$("file").value="";});
 $("analyze").addEventListener("click",()=>action(async()=>{
   step(2);log("Running FFmpeg scene detection…");hideExports();
-  const result=await request("/api/analyze",{id:job.id});clearDirector();clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];edits={};current=-1;
+  const result=await request("/api/analyze",{id:job.id});clearDirector();clearClipper();clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];edits={};current=-1;
   step(3);log(clips.length+" scene segment(s) detected; extracting actual thumbnails and waveform");drawTimeline();
   try{const result=await request("/api/visuals",{id:job.id});visuals=new Map(result.visuals.map(v=>[v.id,v]));log("Scene thumbnails and source audio peaks ready");}
   catch(e){log("Visual extraction failed; cuts remain usable: "+e.message,true);}
@@ -196,7 +225,7 @@ $("beat-cut").addEventListener("click",()=>{
   action(async()=>{
     log("Building a new cut sequence from detected onsets…");hideExports();
     const result=await request("/api/music/cuts",{id:job.id,use_music:$("use-music").checked,interval:Number($("beat-interval").value)});
-    clearDirector();clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];edits={};current=-1;drawTimeline();
+    clearDirector();clearClipper();clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];edits={};current=-1;drawTimeline();
     try{const result=await request("/api/visuals",{id:job.id});visuals=new Map(result.visuals.map(v=>[v.id,v]));}catch(e){log("Visual extraction failed: "+e.message,true);}
     drawTimeline();log(clips.length+" beat-based segments created");connect(3,$("clip-0"));
   });
@@ -235,3 +264,19 @@ $("director-apply").addEventListener("click",()=>{
   remember();selected=new Set(directorPlan.clips);edits=directorPlan.edits;current=-1;hideExports();
   const first=directorPlan.clips[0];clearDirector();drawTimeline();log("Director plan applied to timeline");connect(3,$("clip-"+first));
 });
+
+$("clipper-suggest").addEventListener("click",()=>action(async()=>{
+  log("Ranking candidate source windows…");
+  const result=await request("/api/clipper/suggest",{id:job.id,target:Number($("clipper-target").value),count:$("clipper-count").valueAsNumber,style:$("clipper-style").value,cues,use_music:$("use-music").checked});
+  clipBatch=result.batch;clipCandidates=result.candidates;clipDownloads.clear();drawClipper();
+  $("clipper-status").textContent=clipCandidates.length+" distinct suggestions (heuristic ranking).";
+  log(clipCandidates.length+" promotional clip suggestions ready");
+}));
+$("clipper-render-all").addEventListener("click",()=>action(async()=>{
+  if(!clipBatch)return;
+  let failures=0;
+  for(const c of clipCandidates){
+    try{await renderClip(c);}catch(e){failures++;log("Clip "+(c.id+1)+" failed: "+e.message,true);}
+  }
+  $("clipper-status").textContent=(clipCandidates.length-failures)+" / "+clipCandidates.length+" clips rendered in this batch";
+}));

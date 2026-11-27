@@ -40,3 +40,8 @@
 ## AI Director milestone
 - Added bounded local preset planner and optional loopback-only Ollama JSON planner, scene/caption/onset summaries, strict selection/trim/effect/duration validation, review/apply interface and undo.
 - Added deterministic and mocked Ollama contract tests; live model inference not verified. Presets do not interpret natural language. No semantic visual analysis yet.
+
+## Auto Clipper milestone
+- AI Director CI 45922109564 completed successfully (mocked local AI contract; real Ollama inference still unverified).
+- Added deterministic 15/30/60-second candidate ranking, overlap rejection, up to ten suggestions, source preview, individual and sequential batch MP4 exports, current caption/music settings and separate batch storage.
+- Added ranking, validation and real render tests. New CI pending. No semantic video analysis, virality prediction or automatic publishing.

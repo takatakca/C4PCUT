@@ -11,6 +11,8 @@ import engine
 import captions
 import music
 import director
+import clipper
+import re
 import os
 import sys
 
@@ -62,6 +64,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.file(JOBS[parts[3]]["folder"] / "export.mp4", "video/mp4", True)
         if len(parts) == 4 and parts[1:3] == ["api", "captions"] and parts[3] in JOBS:
             return self.file(JOBS[parts[3]]["folder"] / "export.srt", "application/x-subrip")
+        if len(parts) == 6 and parts[1:3] == ["api", "clipper"] and parts[3] in JOBS:
+            job = JOBS[parts[3]]
+            batch, name = parts[4], parts[5]
+            if batch == job.get("clip_batch") and re.fullmatch(r"[0-9]\.mp4", name):
+                return self.file(job["folder"] / "clips" / name, "video/mp4", True)
         if len(parts) == 5 and parts[1:3] == ["api", "thumbnail"] and parts[3] in JOBS:
             name = parts[4]
             if name.endswith(".jpg") and name[:-4].isascii() and name[:-4].isdigit() and len(name) <= 6:
@@ -182,6 +189,56 @@ class Handler(BaseHTTPRequestHandler):
                 result = director.plan(payload.get("prompt"), payload.get("target"), payload.get("style"),
                                        payload.get("provider"), job["clips"], cues, analysis.get("beats", []))
                 return self.reply(result)
+            if path == "/api/clipper/suggest":
+                cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
+                use_music = payload.get("use_music", False)
+                if type(use_music) is not bool:
+                    raise ValueError("Invalid music selection")
+                analysis = job.get("music_analysis" if use_music else "source_music_analysis", {})
+                if not analysis and not use_music and job["metadata"]["audio"]:
+                    analysis = music.analyze(source, job["metadata"]["duration"])
+                    job["source_music_analysis"] = analysis
+                suggestions = clipper.suggest(job["metadata"]["duration"], job["clips"], cues,
+                                              analysis.get("beats", []), payload.get("target"), payload.get("count"), payload.get("style"))
+                # Replace a previous batch only after valid suggestions.
+                folder = job["folder"] / "clips"
+                shutil.rmtree(folder, ignore_errors=True)
+                folder.mkdir()
+                job["clip_batch"] = secrets.token_hex(12)
+                job["clip_candidates"] = suggestions
+                job["clip_scenes"] = [dict(c) for c in job["clips"]]
+                return self.reply({"batch":job["clip_batch"],"candidates":suggestions})
+            if path == "/api/clipper/render":
+                if payload.get("batch") != job.get("clip_batch") or not job.get("clip_batch"):
+                    raise ValueError("Generate suggestions first")
+                index = payload.get("index")
+                if type(index) is not int or not 0 <= index < len(job["clip_candidates"]):
+                    raise ValueError("Invalid clip index")
+                candidate = job["clip_candidates"][index]
+                selected = clipper.ranges(candidate, job["clip_scenes"])
+                cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
+                mapped = captions.remap(cues, selected)
+                caption_mode = captions.validate_mode(payload.get("caption_mode", "soft"))
+                use_music = payload.get("use_music", False)
+                if type(use_music) is not bool:
+                    raise ValueError("Invalid music selection")
+                music_path = job["folder"] / "music.wav" if use_music else None
+                if music_path is not None and not music_path.is_file():
+                    raise ValueError("Import music first")
+                music_gain = music.validate_gain(payload.get("music_gain", .35))
+                source_gain = music.validate_gain(payload.get("source_gain", 1))
+                folder = job["folder"] / "clips"
+                temp, subtitle = folder / "pending.mp4", folder / "pending.srt"
+                try:
+                    if mapped:
+                        subtitle.write_text(captions.to_srt(mapped),encoding="utf-8")
+                    burn = captions.to_ass(mapped,caption_mode) if mapped and caption_mode != "soft" else None
+                    engine.render(source,temp,selected,job["metadata"]["audio"],subtitle if mapped and caption_mode=="soft" else None,music_path,music_gain,source_gain,burn_ass=burn)
+                    temp.replace(folder / f"{index}.mp4")
+                finally:
+                    temp.unlink(missing_ok=True)
+                    subtitle.unlink(missing_ok=True)
+                return self.reply({"url":f"/api/clipper/{job_id}/{job['clip_batch']}/{index}.mp4"})
             if path == "/api/render":
                 selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}))
                 cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
