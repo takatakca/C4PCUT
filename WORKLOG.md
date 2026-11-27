@@ -142,3 +142,7 @@
 ## Admin visual snapshot
 - PR #15 CI 45942888905 passed; merged at 7c731883b2021ed437e767c936b4e068b14f75be.
 - Added standalone private HTML dashboard from existing read-only snapshot: summary, expandable status groups, usage meters, effective capabilities. Escaped HTML, restrictive CSP, no external assets or scripts, exclusive 0600 file creation. Tests added; CI pending. No production files accessed or billing enabled; no live admin HTTP route.
+
+## Monitor effect preview
+- Existing PR #16 CI 45943093156 passed; merged at 539ad95e7a8dca71e1b42c36224d84891753c2d4. Preserved existing admin dashboard work rather than duplicating.
+- Added optional approximate source-time visual preview for committed mono/warm/contrast/fade/zoom edits, respecting selected and trimmed scenes. Toggle, seek, undo/redo and timeline changes refresh preview. Pure JS and Chromium scenarios added. Latest CI pending. No frame-accurate composite, new commercial fees or public deployment.
