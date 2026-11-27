@@ -71,3 +71,6 @@
 - Optional signed service request verification and workspace mapping implemented, disabled by default. Receiver tests added; new CI pending. No actual V1 issuer or product entitlement lookup, no live SSO, no public deployment. Private secure transport and replay durability remain prerequisites.
 
 - Gateway v2 receiver now binds body bytes and persists nonce claims in SQLite; restart/cross-instance replay and tampering tests added. CI pending. Trusted issuer, verified entitlement lookup, worker sandboxing and live integration still not implemented.
+
+## Studio issuer reference
+- Gateway V2 CI passed and PR #7 merged. Server-only Node signing adapter implemented; requires real V1 guard and dedicated C4PCUT entitlement callback, explicit rollout flag and private key. Cross-language receiver tests added, new CI pending. Live V1 issuer and relay remain unconnected; dedicated grant, payments, worker isolation and deployment remain outstanding.

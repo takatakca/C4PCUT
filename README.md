@@ -67,3 +67,5 @@ With footage imported, attach a TAKATAKSTUDIO production_request_pack v1 JSON (m
 Optional private gateway assertion verifier has been implemented for future Studio service-to-service integration. It is disabled by default, requires a server-side workspace mapping and private signing key, verifies short-lived request-bound claims, and rejects replay within one running process. No V1 issuer or public SSO is connected. See docs/STUDIO_INTEGRATION.md.
 
 Gateway receiver v2 adds mandatory exact body digest, bounded authenticated body staging and persistent SQLite nonce reservations. V1 assertions are rejected. See the v2 contract in docs/STUDIO_INTEGRATION.md.
+
+Server-only Node issuer reference: integration/studio-issuer.mjs verifies injected authoritative workspace permission and dedicated C4PCUT entitlement before signing exact request bytes. It is not wired into TAKATAK v1; disabled by default and cannot be used as a browser token endpoint. Cross-language tests cover its compatibility with the Python receiver.
