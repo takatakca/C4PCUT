@@ -1,0 +1,93 @@
+"""Real Chromium editor smoke, private temporary workspace and synthetic footage."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.request
+from playwright.sync_api import sync_playwright, expect
+
+ROOT=Path(__file__).resolve().parents[1]
+URL="http://127.0.0.1:8765"
+PASSWORD="synthetic-private-workspace-password"
+
+def run():
+    with tempfile.TemporaryDirectory(prefix="c4pcut-browser-") as directory:
+        root=Path(directory)
+        fixture=root/"fixture.mp4"
+        subprocess.run(["ffmpeg","-hide_banner","-loglevel","error","-f","lavfi","-i","color=c=blue:s=320x240:r=24:d=2","-f","lavfi","-i","sine=frequency=440:sample_rate=44100:duration=2","-c:v","libx264","-pix_fmt","yuv420p","-c:a","aac","-shortest","-threads","2",str(fixture)],check=True,timeout=30)
+        config=root/"workspaces.json"
+        config.write_text(json.dumps({"pilot":{"password_sha256":hashlib.sha256(PASSWORD.encode()).hexdigest(),"monthly_render_seconds":2,"capabilities":{"max_output_edge":1280,"max_render_seconds":30,"max_projects":1,"qualities":["compact"],"features":[]}}}))
+        env={k:v for k,v in os.environ.items() if not k.startswith("C4PCUT_")}
+        env.update(C4PCUT_DATA_DIR=str(root/"data"),C4PCUT_WORKSPACES_FILE=str(config))
+        with (root/"server.log").open("w+") as log:
+            process=subprocess.Popen([sys.executable,"server.py"],cwd=ROOT,env=env,stdout=log,stderr=log)
+            try:
+                for _ in range(60):
+                    if process.poll() is not None:raise RuntimeError("Private server exited")
+                    try:
+                        with urllib.request.urlopen(URL+"/healthz",timeout=1) as response:
+                            if response.status==200:break
+                    except OSError:time.sleep(.25)
+                else:raise RuntimeError("Private server not ready")
+                with sync_playwright() as p:
+                    browser=p.chromium.launch(headless=True)
+                    context=browser.new_context(http_credentials={"username":"pilot","password":PASSWORD},accept_downloads=True)
+                    page=context.new_page()
+                    errors=[]
+                    page.on("pageerror",lambda error:errors.append(str(error)))
+                    page.goto(URL,wait_until="domcontentloaded")
+                    expect(page.locator("#account-plan")).to_have_text("Private workspace")
+                    expect(page.locator("#account-policy")).to_contain_text("1280 px")
+                    expect(page.locator("#usage-summary")).to_contain_text("0 / 2 s")
+                    expect(page.locator("#file")).to_be_enabled()
+                    expect(page.locator("#export-preset option[value=vertical_4k]")).to_be_disabled()
+                    expect(page.locator("#export-quality option[value=high]")).to_be_disabled()
+                    page.locator("#file").set_input_files(str(fixture))
+                    expect(page.locator("#analyze")).to_be_enabled(timeout=15000)
+                    expect(page.locator("#file")).to_be_disabled()
+                    page.locator("#analyze").click()
+                    expect(page.locator("#summary")).to_contain_text("1 / 1",timeout=30000)
+                    expect(page.locator("#transcribe")).to_be_disabled()
+                    expect(page.locator("#clipper-suggest")).to_be_disabled()
+                    expect(page.locator("#music-file")).to_be_disabled()
+                    page.locator("#export-quality").select_option("compact")
+                    page.locator("#export-preset").select_option("original")
+                    expect(page.locator("#render")).to_be_enabled()
+                    page.locator("#render").click()
+                    expect(page.locator("#download")).to_be_visible(timeout=90000)
+                    expect(page.locator("#usage-summary")).to_contain_text("0 s remaining",timeout=15000)
+                    expect(page.locator("#render")).to_be_disabled()
+                    with page.expect_download(timeout=15000) as info:
+                        page.locator("#download").click()
+                    downloaded=info.value.path()
+                    assert downloaded and downloaded.stat().st_size>0
+                    probe=subprocess.run(["ffprobe","-v","error","-show_entries","format=duration","-of","default=noprint_wrappers=1:nokey=1",str(downloaded)],capture_output=True,text=True,check=True,timeout=15)
+                    assert 1.9<=float(probe.stdout.strip())<=2.1
+                    page.locator("#project-name").fill("Browser smoke")
+                    page.locator("#save-project").click()
+                    expect(page.locator("#project")).to_have_text("Browser smoke")
+                    expect(page.locator("#open-project")).to_be_enabled()
+                    page.once("dialog",lambda dialog:dialog.accept())
+                    page.locator("#open-project").click()
+                    expect(page.locator("#log")).to_contain_text("Opened saved project",timeout=30000)
+                    page.once("dialog",lambda dialog:dialog.accept())
+                    page.locator("#delete-project").click()
+                    expect(page.locator("#file")).to_be_enabled(timeout=15000)
+                    expect(page.locator("#usage-summary")).to_contain_text("0 s remaining")
+                    assert not errors,errors
+                    context.close();browser.close()
+                print("PASS: real Chromium import, analyze, feature gates, FFmpeg export/download, quota exhaustion, save/open/delete")
+            except Exception:
+                log.flush();log.seek(0)
+                print(log.read()[-12000:],file=sys.stderr)
+                raise
+            finally:
+                process.terminate()
+                try:process.wait(timeout=5)
+                except subprocess.TimeoutExpired:process.kill();process.wait()
+if __name__=="__main__":
+    run()
