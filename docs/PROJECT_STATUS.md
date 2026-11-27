@@ -100,3 +100,5 @@
 
 ## Browser validation
 - PR #13 passed original CI and merged. New real Chromium smoke workflow and editor quota/refresh fixes added. Exact browser CI result pending; no claim of browser pass or production deployment yet.
+
+- Browser CI 45940304013: normal test job passed, browser dependency installation failed (nonexistent 1.51.1 pin). Updated to available 1.65.2 and explicit Ubuntu 24.04 runner. Browser workflow itself has not yet executed.

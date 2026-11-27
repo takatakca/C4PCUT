@@ -132,3 +132,5 @@
 ## Real browser smoke and UI quota guard
 - PR #13 CI 45939512796 passed; merged at 42fb2675dec89d9e3a197199546e69c10040fc39.
 - Added separate Chromium CI job using Playwright, actual local Python server, restricted private workspace and FFmpeg fixture; exercises import/analyze/render/download, blocked features, exhausted quota and project lifecycle. Added UI remaining-quota guard and mutation/refresh serialization, refresh project count. Browser execution pending CI; local GitHub clone blocked by DNS. No live V1/payment/deployment.
+
+- Browser CI 45940304013: test job succeeded; browser job stopped before Chromium installation because playwright==1.51.1 was unavailable. Pinned 1.65.2 from the versions explicitly listed by pip in the failed job, and Ubuntu 24.04 for stable runner compatibility. Exact browser result still pending.
