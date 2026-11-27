@@ -73,12 +73,13 @@ class GatewayTests(unittest.TestCase):
             folder=registry["alpha"].storage/ident
             folder.mkdir()
             (folder/"source.media").write_bytes(b"private alpha")
+            (folder/"music.wav").write_bytes(b"private soundtrack")
             registry["alpha"].jobs[ident]={"folder":folder}
             httpd=ThreadingHTTPServer(("127.0.0.1",0),server.Handler)
             httpd.workspaces=registry
             httpd.persistent=True
             policy={"max_output_edge":1280,"max_render_seconds":30,"max_projects":1,"qualities":["compact"],"features":[]}
-            httpd.plan_profiles=capabilities.parse_profiles({p:{"capabilities":policy,"monthly_render_seconds":60 if p=="free" else 120} for p in capabilities.PLANS})
+            httpd.plan_profiles=capabilities.parse_profiles({p:{"capabilities":{**policy,"features":["music"] if p=="pro" else []},"monthly_render_seconds":60 if p=="free" else 120} for p in capabilities.PLANS})
             httpd.studio_gateway=studio_gateway.Gateway(KEY,{A:"alpha",B:"beta"},registry,clock=lambda:1001)
             thread=threading.Thread(target=httpd.serve_forever,daemon=True)
             thread.start()
@@ -111,6 +112,10 @@ class GatewayTests(unittest.TestCase):
                 path="/api/source/"+ident
                 self.assertEqual(req(path,assertion(target=path)),(200,b"private alpha"))
                 self.assertEqual(req(path,assertion(target=path,client=B))[0],404)
+                path="/api/soundtrack/"+ident
+                self.assertEqual(req(path,assertion(target=path))[0],403)
+                self.assertEqual(req(path,assertion(target=path,plan="pro")),(200,b"private soundtrack"))
+                self.assertEqual(req(path,assertion(target=path,client=B,plan="pro"))[0],404)
                 path="/api/projects/list"
                 self.assertEqual(req(path,assertion(target=path,method="POST",client=B,body=b"{}"),payload={},csrf=registry["alpha"].token)[0],403)
                 self.assertEqual(req(path,assertion(target=path,method="POST",client=B,body=b"{}"),payload={},csrf=registry["beta"].token)[0],200)

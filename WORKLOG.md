@@ -150,3 +150,7 @@
 ## Edited sequence playback
 - PR #17 CI 45943695433 passed; merged at f8769da88a5afe4e6c44d471a2178c8924233602.
 - Added source-time playback of selected trimmed ranges with edited position and duration, stop, scrubber, and cut skipping. Editing or manual source seeking cancels active playback. Unit gap/trim tests and browser trimmed playback smoke added. Exact CI pending. Source audio only; not frame-accurate or a mixed soundtrack preview. No deployment/payment changes.
+
+## Sequence audio monitor
+- PR #18 CI 45944325297 passed; merged at 0e6fc7ceae39208c9937cc5a3ee90c2e07b6dc89.
+- Added authenticated scoped soundtrack GET (music feature required), issuer allowlist, normalized WAV monitor load/cleanup, source-time music sync and drift correction, live gain controls, pause on cut/stop/stall, saved project reload. Gateway isolation and actual Chromium music scenarios added. Exact CI pending. Approximate browser mix, no FFmpeg limiter equivalence or public deployment. No billing changes.
