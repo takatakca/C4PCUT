@@ -119,3 +119,6 @@
 - PR #18 passed CI and merged. Private normalized soundtrack playback, gain and source-time synchronization implemented; tests pending. Browser audio mix is approximate and dependent on browser autoplay/volume support. No new payment or production deployment.
 
 - Audio CI 45944613873: standard tests pass, Chromium blocked by test-side unsafe-eval. Corrected locator assertions without relaxing CSP; hardened stale audio callbacks. Browser playback still pending exact-head validation.
+
+## Timeline order and audio integration
+- PR #19 merged after successful CI; independent Timeline PR #20 CI also green. Explicit scene ordering and project persistence integrated with source-time audio preview. Combined browser reorder test added. Latest combined CI required before main merge. Full overlapping multi-track editing, live TAKATAK integration, billing and worker isolation/deployment remain outstanding.

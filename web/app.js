@@ -49,7 +49,31 @@ $("monitor-audio").addEventListener("loadedmetadata",()=>{if(sequence)syncMonito
 $("video").addEventListener("waiting",pauseMonitor);
 $("video").addEventListener("ratechange",()=>syncMonitor(true));
 $("video").addEventListener("volumechange",()=>{if(sequence)$("monitor-audio").muted=$("video").muted;});
-function sequencePlan(){return SequencePreview.build(clips,edits,selected);}
+let sceneOrder=[];
+function selectedOrder(){return SequencePreview.ordered(clips,selected,sceneOrder);}
+function moveScene(from,to){
+  const order=selectedOrder(),i=order.indexOf(from),j=order.indexOf(to);
+  if(busy||i<0||j<0||i===j)return;
+  remember();order.splice(i,1);order.splice(j,0,from);sceneOrder=order;hideExports();showSequencePosition(0,sequencePlan().total);drawTimeline();
+  log("Scene "+(from+1)+" moved to position "+(j+1));
+}
+function drawSceneOrder(){
+  const list=$("scene-order"),order=selectedOrder();list.replaceChildren();
+  if(!order.length){list.textContent="Select scenes to arrange the edited sequence.";return;}
+  order.forEach((id,i)=>{
+    const card=document.createElement("div");card.className="order-card";card.draggable=!busy;card.dataset.scene=String(id);
+    const label=document.createElement("span");label.textContent=(i+1)+". Scene "+(id+1);card.append(label);
+    for(const [direction,target] of [["Earlier",order[i-1]],["Later",order[i+1]]]){
+      const b=document.createElement("button");b.textContent=direction==="Earlier"?"←":"→";b.setAttribute("aria-label",direction+" scene "+(id+1));b.disabled=busy||target===undefined;b.onclick=()=>moveScene(id,target);card.append(b);
+    }
+    card.addEventListener("dragstart",e=>{if(busy){e.preventDefault();return;}e.dataTransfer.setData("application/x-c4pcut-scene",String(id));e.dataTransfer.effectAllowed="move";});
+    card.addEventListener("dragover",e=>{if(!busy&&e.dataTransfer.types.includes("application/x-c4pcut-scene")){e.preventDefault();e.dataTransfer.dropEffect="move";}});
+    card.addEventListener("drop",e=>{e.preventDefault();const raw=e.dataTransfer.getData("application/x-c4pcut-scene");if(/^\d{1,2}$/.test(raw))moveScene(Number(raw),id);});
+    list.append(card);
+  });
+}
+$("reset-order").addEventListener("click",()=>{if(busy)return;const order=selectedOrder();if(order.every((id,i)=>i===0||id>order[i-1]))return;remember();sceneOrder=[];hideExports();showSequencePosition(0,sequencePlan().total);drawTimeline();});
+function sequencePlan(){return SequencePreview.build(clips,edits,selected,selectedOrder());}
 function showSequencePosition(value,total){
   const bar=$("sequence-position");bar.max=String(total);bar.value=String(Math.max(0,Math.min(total,value)));
   $("sequence-clock").textContent=format(value)+" / "+format(total);
@@ -145,11 +169,11 @@ function clearDirector(){directorPlan=null;$("director-result").textContent="No 
 function beatData(){return $("use-music").checked?musicData:sourceBeats;}
 function resetMusic(){clearMonitorMusic();musicData=null;sourceBeats=null;musicName="";$("use-music").checked=false;$("music-gain").value=.35;$("source-gain").value=1;}
 function musicStatus(){const data=beatData();$("beat-info").textContent=data?data.beats.length+" detected onsets"+(data.estimated_bpm?" · ~"+data.estimated_bpm+" BPM estimate":""):"No beat analysis";}
-function snapshot(){return {selected:[...selected],edits:JSON.parse(JSON.stringify(edits)),cues:JSON.parse(JSON.stringify(cues))};}
+function snapshot(){return {selected:[...selected],order:selectedOrder(),edits:JSON.parse(JSON.stringify(edits)),cues:JSON.parse(JSON.stringify(cues))};}
 function hideExports(){stopSequence();$("download").hidden=true;$("download-srt").hidden=true;}
 function edited(c){return edits[c.id]||c;}
 function remember(){history.push(snapshot());if(history.length>100)history.shift();future=[];}
-function restore(stack, other){if(busy||!stack.length)return;other.push(snapshot());const state=stack.pop();selected=new Set(state.selected);edits=state.edits;cues=state.cues;activeCue=-1;refreshCaption();refreshInspector();hideExports();drawTimeline();log("Selection history restored");}
+function restore(stack, other){if(busy||!stack.length)return;other.push(snapshot());const state=stack.pop();selected=new Set(state.selected);sceneOrder=state.order||[];edits=state.edits;cues=state.cues;activeCue=-1;refreshCaption();refreshInspector();hideExports();drawTimeline();log("Selection history restored");}
 function updateEffectPreview(){
   const video=$("video"), enabled=!!job&&$("preview-effects").checked;
   const state=EffectPreview.at(clips,edits,selected,video.currentTime,enabled);
@@ -266,6 +290,7 @@ function drawTimeline() {
     }
     parent.append(row);
   }
+  drawSceneOrder();$("reset-order").disabled=busy||selected.size<2;
   summary();updatePlayhead();updateCaptionOverlay();updateEffectPreview();
 }
 function refreshInspector(){
@@ -294,13 +319,13 @@ async function action(fn){
 $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)return;action(async()=>{
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
   step(0);log("Importing "+file.name);const result=await request("/api/import",file,true);
-  showSequencePosition(0,0);job=result;if(projectCount!==null)projectCount++;setStudioBrief(null);sourceMime=["video/mp4","video/quicktime","video/webm"].includes(file.type)?file.type:"";$("saved-projects").value="";clearDirector();clearClipper();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
+  showSequencePosition(0,0);job=result;if(projectCount!==null)projectCount++;setStudioBrief(null);sourceMime=["video/mp4","video/quicktime","video/webm"].includes(file.type)?file.type:"";$("saved-projects").value="";clearDirector();clearClipper();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();sceneOrder=[];visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
   if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;$("project-name").value=file.name.slice(0,160);
   $("format").textContent=job.width+" × "+job.height;step(1,true);log("Media verified · "+format(job.duration));
 });$("file").value="";});
 $("analyze").addEventListener("click",()=>action(async()=>{
   step(2);log("Running FFmpeg scene detection…");hideExports();
-  const result=await request("/api/analyze",{id:job.id});clearDirector();clearClipper();clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];edits={};current=-1;
+  const result=await request("/api/analyze",{id:job.id});clearDirector();clearClipper();clips=result.clips;selected=new Set(clips.map(c=>c.id));sceneOrder=[];visuals.clear();history=[];future=[];edits={};current=-1;
   step(3);log(clips.length+" scene segment(s) detected; extracting actual thumbnails and waveform");drawTimeline();
   try{const result=await request("/api/visuals",{id:job.id});visuals=new Map(result.visuals.map(v=>[v.id,v]));log("Scene thumbnails and source audio peaks ready");}
   catch(e){log("Visual extraction failed; cuts remain usable: "+e.message,true);}
@@ -310,7 +335,7 @@ $("render").addEventListener("click",()=>action(async()=>{
   step(4);hideExports();log("Rendering "+selected.size+" selected scenes…");
   $("render-progress").value=0;$("render-status").textContent="Submitting";
   try{
-    const submitted=await request("/api/render",{id:job.id,clips:[...selected],edits,...clipperSettings()});
+    const submitted=await request("/api/render",{id:job.id,clips:[...selected],order:selectedOrder(),edits,...clipperSettings()});
     activeRender=submitted.render_id;updateButtons();
     while(true){
       const state=await request("/api/render/status",{render_id:activeRender});
@@ -376,7 +401,7 @@ $("beat-cut").addEventListener("click",()=>{
   action(async()=>{
     log("Building a new cut sequence from detected onsets…");hideExports();
     const result=await request("/api/music/cuts",{id:job.id,use_music:$("use-music").checked,interval:Number($("beat-interval").value)});
-    clearDirector();clearClipper();clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];edits={};current=-1;drawTimeline();
+    clearDirector();clearClipper();clips=result.clips;selected=new Set(clips.map(c=>c.id));sceneOrder=[];visuals.clear();history=[];future=[];edits={};current=-1;drawTimeline();
     try{const result=await request("/api/visuals",{id:job.id});visuals=new Map(result.visuals.map(v=>[v.id,v]));}catch(e){log("Visual extraction failed: "+e.message,true);}
     drawTimeline();log(clips.length+" beat-based segments created");connect(3,$("clip-0"));
   });
@@ -412,7 +437,7 @@ $("director-plan").addEventListener("click",()=>action(async()=>{
 $("director-apply").addEventListener("click",()=>{
   if(busy||!directorPlan)return;
   if(!window.confirm("Apply director selection, trims and effects? Undo is available."))return;
-  remember();selected=new Set(directorPlan.clips);edits=directorPlan.edits;current=-1;hideExports();
+  remember();selected=new Set(directorPlan.clips);sceneOrder=[];edits=directorPlan.edits;current=-1;hideExports();
   const first=directorPlan.clips[0];clearDirector();drawTimeline();log("Director plan applied to timeline");connect(3,$("clip-"+first));
 });
 
@@ -446,7 +471,7 @@ async function refreshProjects(){
 }
 $("saved-projects").addEventListener("change",updateButtons);
 $("save-project").addEventListener("click",()=>action(async()=>{
-  const result=await request("/api/projects/save",{id:job.id,name:$("project-name").value,source_mime:sourceMime,studio_brief:studioBrief,selected:[...selected],edits,...clipperSettings()});
+  const result=await request("/api/projects/save",{id:job.id,name:$("project-name").value,source_mime:sourceMime,studio_brief:studioBrief,selected:[...selected],order:selectedOrder(),edits,...clipperSettings()});
   $("project").textContent=result.name;await refreshProjects();$("saved-projects").value=job.id;log("Saved project: "+result.name);
 }));
 $("open-project").addEventListener("click",()=>{
@@ -460,7 +485,7 @@ $("open-project").addEventListener("click",()=>{
     if(objectURL)URL.revokeObjectURL(objectURL);
     objectURL=URL.createObjectURL(new Blob([raw],{type:sourceMime}));
     showSequencePosition(0,0);job=result;clearDirector();clearClipper();resetMusic();clips=result.clips;visuals.clear();history=[];future=[];current=-1;activeCue=-1;
-    const s=result.state;setStudioBrief(s.studio_brief||null);$("director-prompt").value=(result.director_prompt||"").slice(0,1500);selected=new Set(s.selected);edits=s.edits;cues=s.cues;musicData=result.music;musicName="Saved soundtrack";await loadMonitorMusic();
+    const s=result.state;setStudioBrief(s.studio_brief||null);$("director-prompt").value=(result.director_prompt||"").slice(0,1500);selected=new Set(s.selected);sceneOrder=s.order||[];edits=s.edits;cues=s.cues;musicData=result.music;musicName="Saved soundtrack";await loadMonitorMusic();
     $("use-music").checked=s.use_music;$("music-gain").value=s.music_gain;$("source-gain").value=s.source_gain;$("caption-mode").value=s.caption_mode;$("export-preset").value=s.preset;$("export-framing").value=s.framing;$("export-quality").value=s.quality||"standard";
     $("project-name").value=s.name;$("project").textContent=s.name;$("video").src=objectURL;$("placeholder").hidden=true;$("format").textContent=job.width+" × "+job.height;
     refreshCaption();hideExports();drawTimeline();
@@ -476,7 +501,7 @@ $("delete-project").addEventListener("click",()=>{
     await request("/api/projects/delete",{id});
     if(job?.id===id){
       if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;$("video").removeAttribute("src");$("video").load();
-      job=null;setStudioBrief(null);clearDirector();clearClipper();resetMusic();clips=[];selected.clear();edits={};cues=[];visuals.clear();history=[];future=[];current=-1;activeCue=-1;refreshCaption();hideExports();
+      job=null;sceneOrder=[];setStudioBrief(null);clearDirector();clearClipper();resetMusic();clips=[];selected.clear();sceneOrder=[];edits={};cues=[];visuals.clear();history=[];future=[];current=-1;activeCue=-1;refreshCaption();hideExports();
       $("placeholder").hidden=false;$("project").textContent="Untitled sequence";$("project-name").value="";$("format").textContent="NO MEDIA";
     }
     await refreshProjects();log("Project deleted");

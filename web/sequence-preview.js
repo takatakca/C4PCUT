@@ -1,11 +1,18 @@
 /* Source-time playback plan; does not render or change exported media. */
 "use strict";
 const SequencePreview=(()=>{
-  function build(clips,edits,selected){
+  function ordered(clips,selected,prior=[]){
+    const valid=new Set(clips.filter(c=>selected.has(c.id)).map(c=>c.id));
+    const order=[];
+    for(const id of [...prior,...[...valid].sort((a,b)=>a-b)])if(valid.delete(id))order.push(id);
+    return order;
+  }
+  function build(clips,edits,selected,order=[]){
     let total=0;
     const ranges=[];
-    for(const base of [...clips].sort((a,b)=>a.id-b.id)){
-      if(!selected.has(base.id))continue;
+    const byId=new Map(clips.map(c=>[c.id,c]));
+    for(const id of ordered(clips,selected,order)){
+      const base=byId.get(id);
       const edit=edits[base.id]||base;
       if(!Number.isFinite(edit.start)||!Number.isFinite(edit.end)||edit.start<base.start||edit.end>base.end||edit.end<=edit.start)continue;
       const duration=edit.end-edit.start;
@@ -25,5 +32,5 @@ const SequencePreview=(()=>{
     const range=plan.ranges[i];
     return {index:i,source:Math.min(range.end,range.start+Math.max(0,output-range.offset)),output};
   }
-  return Object.freeze({build,position,locate});
+  return Object.freeze({build,position,locate,ordered});
 })();

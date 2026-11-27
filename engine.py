@@ -107,8 +107,17 @@ def effect_filter(effect, duration, dimensions=None):
         return f",zoompan=z='1+0.12*min(1,on/{frames})':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=1:s={w}x{h}:fps=30,setsar=1"
     return EFFECTS[effect]
 
-def validate_edits(ids, clips, edits):
-    selected = validate_selection(ids, clips)
+def validate_order(ids, order):
+    """Explicit order must be a permutation of selected scene IDs."""
+    if order is None:
+        return sorted(ids)
+    if not isinstance(order,list) or len(order)!=len(ids) or any(type(i) is not int for i in order) or len(set(order))!=len(order) or set(order)!=set(ids):
+        raise ValueError("Scene order must contain each selected scene exactly once")
+    return list(order)
+
+def validate_edits(ids, clips, edits, order=None):
+    validate_selection(ids, clips)
+    selected = [clips[i] for i in validate_order(ids,order)]
     if not isinstance(edits, dict) or len(edits) > MAX_CLIPS:
         raise ValueError("Invalid edits")
     known = {str(c["id"]): c for c in clips}

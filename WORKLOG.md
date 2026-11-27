@@ -156,3 +156,6 @@
 - Added authenticated scoped soundtrack GET (music feature required), issuer allowlist, normalized WAV monitor load/cleanup, source-time music sync and drift correction, live gain controls, pause on cut/stop/stall, saved project reload. Gateway isolation and actual Chromium music scenarios added. Exact CI pending. Approximate browser mix, no FFmpeg limiter equivalence or public deployment. No billing changes.
 
 - CI 45944613873: standard tests passed; browser failed because string-based Playwright wait evaluation violates the existing CSP. HTTP logs confirm music upload and normalized soundtrack delivery (200). Replaced string waits with locator property assertions; retained CSP unchanged. Added generation guard for stale soundtrack requests and recoverable interrupted audio play. New CI pending.
+
+## Timeline ordered scenes and integrated audio
+- PR #19 CI 45948907914 passed and merged at 5b7e986b52f192fad1386dd94f1f739a1272638d. PR #20 independent CI 45949093779 passed. Reconciled both branches using a two-parent merge preserving audio monitor, reordered playback, project manifests and backend order validation. Added combined Chromium reorder/undo/redo/play/save/reopen/reset scenario. Existing real reversed-color export, caption remap and legacy project tests preserved. Exact merged-head CI pending. No fees, billing or deployment.

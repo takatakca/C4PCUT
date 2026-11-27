@@ -95,3 +95,5 @@ Optional monitor effect preview applies approximate browser filters for committe
 Play edited sequence previews selected trims in source order, jumps across excluded ranges, and exposes a separate edited-time scrubber. Playback is approximate (browser seek/frame timing), source audio only; no soundtrack mix or export geometry preview. No rendering quota is consumed by playback.
 
 Edited sequence audio monitor uses the normalized private WAV soundtrack and source-time cut alignment, approximate drift correction and volume controls. It pauses music on seeks/stalls/stop and restores ordinary source volume. Browser mixing is not FFmpeg limiter-accurate; mobile autoplay/volume behavior may vary. No render quota for preview.
+
+Timeline output-order strip supports drag-and-drop and earlier/later buttons. Explicit selected-scene permutation drives playback and FFmpeg export; saved projects preserve order, old projects default to chronological. Source tracks remain chronological; captions and music follow source intervals into output order. No arbitrary overlapping multi-layer editing yet.

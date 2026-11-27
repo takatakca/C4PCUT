@@ -60,6 +60,29 @@ class EngineTests(unittest.TestCase):
             self.assertEqual(len(pixel),3)
             self.assertLessEqual(max(pixel)-min(pixel),4)
 
+    def test_explicit_scene_order(self):
+        clips=engine.segments(4,[2])
+        self.assertEqual(engine.validate_edits([1,0],clips,{}),clips)
+        self.assertEqual(engine.validate_edits([0,1],clips,{},[1,0]),list(reversed(clips)))
+        for order in ([0],[1,1],[0,2],[True,0],"1,0"):
+            with self.assertRaises(ValueError):engine.validate_edits([0,1],clips,{},order)
+
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg required")
+    def test_reversed_export_pixels_and_captions(self):
+        import captions
+        with tempfile.TemporaryDirectory() as d:
+            src,out=Path(d)/"source.mp4",Path(d)/"output.mp4"
+            engine.run(["ffmpeg","-nostdin","-y","-f","lavfi","-i","color=red:s=160x120:r=25:d=2","-f","lavfi","-i","color=blue:s=160x120:r=25:d=2","-filter_complex","[0:v][1:v]concat=n=2:v=1:a=0[v]","-map","[v]","-c:v","libx264","-pix_fmt","yuv420p",str(src)])
+            clips=engine.validate_edits([0,1],engine.segments(4,[2]),{},[1,0])
+            engine.render(src,out,clips,False)
+            def pixel(t):
+                return subprocess.run(["ffmpeg","-v","error","-ss",str(t),"-i",str(out),"-frames:v","1","-vf","scale=1:1","-f","rawvideo","-pix_fmt","rgb24","-"],check=True,capture_output=True).stdout
+            self.assertGreater(pixel(.5)[2],200)
+            self.assertGreater(pixel(2.5)[0],200)
+            mapped=captions.remap([{"start":0,"end":2,"text":"red"},{"start":2,"end":4,"text":"blue"}],clips)
+            self.assertEqual([c["text"] for c in mapped],["blue","red"])
+            self.assertEqual([c["start"] for c in mapped],[0,2])
+
     def test_dynamic_effect_validation(self):
         clips=engine.segments(4,[2])
         self.assertEqual(engine.validate_edits([0],clips,{"0":{"effect":"zoom"}})[0]["effect"],"zoom")
