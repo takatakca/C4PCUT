@@ -12,7 +12,7 @@ function clipperButtons(){
   for(const id of ["clipper-target","clipper-count","clipper-style"])$(id).disabled=busy;
   $("clipper-results").querySelectorAll("button").forEach(b=>b.disabled=busy);
 }
-function clipperSettings(){return {cues,caption_mode:$("caption-mode").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)};}
+function clipperSettings(){return {cues,caption_mode:$("caption-mode").value,preset:$("export-preset").value,framing:$("export-framing").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)};}
 function drawClipper(){
   const parent=$("clipper-results");parent.replaceChildren();
   for(const c of clipCandidates){
@@ -72,6 +72,7 @@ function updateButtons() {
   $("file").disabled = busy;
   $("analyze").disabled = busy || !job;
   $("render").disabled = busy || !selected.size;
+  $("export-preset").disabled=busy;$("export-framing").disabled=busy||$("export-preset").value==="original";
   clipperButtons();
   $("director-plan").disabled=busy||!clips.length;
   $("director-apply").disabled=busy||!directorPlan;
@@ -176,7 +177,7 @@ $("analyze").addEventListener("click",()=>action(async()=>{
 }));
 $("render").addEventListener("click",()=>action(async()=>{
   step(4);hideExports();log("Rendering "+selected.size+" selected scenes…");
-  const result=await request("/api/render",{id:job.id,clips:[...selected],edits,cues,caption_mode:$("caption-mode").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)});step(4,true);log("MP4 export complete");$("download").href=result.url;$("download").hidden=false;if(result.captions_url){$("download-srt").href=result.captions_url;$("download-srt").hidden=false;}connect(4,$("download"));
+  const result=await request("/api/render",{id:job.id,clips:[...selected],edits,cues,caption_mode:$("caption-mode").value,preset:$("export-preset").value,framing:$("export-framing").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)});step(4,true);log("MP4 export complete");$("download").href=result.url;$("download").hidden=false;if(result.captions_url){$("download-srt").href=result.captions_url;$("download-srt").hidden=false;}connect(4,$("download"));
 }));
 $("video").addEventListener("timeupdate",()=>{$("time").textContent=format($("video").currentTime);updatePlayhead();updateCaptionOverlay();});
 $("undo").addEventListener("click",()=>restore(history,future));
@@ -280,3 +281,5 @@ $("clipper-render-all").addEventListener("click",()=>action(async()=>{
   }
   $("clipper-status").textContent=(clipCandidates.length-failures)+" / "+clipCandidates.length+" clips rendered in this batch";
 }));
+
+for(const id of ["export-preset","export-framing"])$(id).addEventListener("change",()=>{hideExports();updateButtons();log("Export format updated; preview remains source footage");});

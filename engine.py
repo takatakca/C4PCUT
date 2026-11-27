@@ -88,7 +88,17 @@ def validate_edits(ids, clips, edits):
         validated[key] = {**base, "start": a, "end": b, "effect": effect}
     return [validated.get(str(c["id"]), c) for c in selected]
 
-def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None):
+EXPORT_FORMATS = {"original": None, "vertical": (720,1280), "square": (720,720), "landscape": (1280,720),
+                  "vertical_hd": (1080,1920), "square_hd": (1080,1080), "landscape_hd": (1920,1080)}
+
+def validate_format(preset, framing):
+    if not isinstance(preset,str) or preset not in EXPORT_FORMATS:
+        raise ValueError("Unknown export format")
+    if not isinstance(framing,str) or framing not in {"fit","crop"}:
+        raise ValueError("Unknown framing")
+    return EXPORT_FORMATS[preset]
+
+def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None, preset="original", framing="fit"):
     # Normalize timestamps and concatenate independently trimmed video/audio streams.
     filters, inputs = [], []
     if burn_ass is not None and subtitle_path is not None:
@@ -97,13 +107,20 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
     has_audio = audio or music_path is not None
     # A zoom operation needs a fixed output geometry and frame rate. Normalize
     # every scene in that sequence to keep concat inputs compatible.
-    dimensions = None
-    if any(c.get("effect") == "zoom" for c in clips):
+    dimensions = validate_format(preset,framing)
+    if dimensions is None and any(c.get("effect") == "zoom" for c in clips):
         info = probe(source)
         dimensions = (max(2,info["width"]//2*2),max(2,info["height"]//2*2))
     for i, c in enumerate(clips):
         a, b = c["start"], c["end"]
-        geometry = f"scale={dimensions[0]}:{dimensions[1]},fps=30" if dimensions else "scale=trunc(iw/2)*2:trunc(ih/2)*2"
+        if preset != "original":
+            w,h = dimensions
+            if framing == "fit":
+                geometry = f"scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,fps=30"
+            else:
+                geometry = f"scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,crop={w}:{h},fps=30"
+        else:
+            geometry = f"scale={dimensions[0]}:{dimensions[1]},fps=30" if dimensions else "scale=trunc(iw/2)*2:trunc(ih/2)*2"
         effect = effect_filter(c.get("effect","none"), b-a, dimensions)
         filters.append(f"[0:v:0]trim=start={a}:end={b},setpts=PTS-STARTPTS,{geometry},setsar=1{effect}[v{i}]")
         inputs.append(f"[v{i}]")

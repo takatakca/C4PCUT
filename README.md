@@ -40,3 +40,6 @@ Analyze media, choose a preset (deterministic, ignores free-form prompt semantic
 
 ## Auto Clipper
 Analyze footage, choose 15/30/60 seconds, up to ten suggestions and a fixed look. Candidate windows are ranked using available caption coverage, local audio onsets and scene boundaries; near-duplicate windows are rejected, so shorter media may return fewer clips. This is heuristic ranking, not a guarantee of virality or visual understanding. Preview seeks source footage. Render a candidate or render all sequentially; every MP4 uses current caption and music settings. Results are separate from the main edit. Generating another batch replaces previous batch files for that source; download any needed exports first. All files remain local and temporary. Social aspect ratios, persistent batch storage and model-ranked highlights remain planned.
+
+## Social exports and private deployment
+Choose original, vertical, square or landscape formats in 720p/1080p presets. Fit pads; crop centers the image (not AI subject tracking). Both main export and clipper use the selected format. Preview remains source footage. See [private Docker deployment guide](docs/DEPLOYMENT.md). No public deployment or persistent library is included.

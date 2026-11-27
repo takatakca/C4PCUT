@@ -41,3 +41,6 @@
 ## Auto Clipper
 - Implemented up to ten heuristic source-window suggestions, 15/30/60-second target, three fixed styles, individual and sequential batch export using current caption and music settings without replacing main timeline.
 - Candidate ranking uses source scene boundaries, caption coverage and audio onsets; fewer clips are returned when windows would overlap excessively. Temporary batch files replaced by new suggestions. Model-based visual ranking, output aspect presets, durable queues and batch persistence remain planned. CI pending.
+
+## Social formats / private release candidate
+- Implemented 9:16, 1:1, 16:9 at 720/1080 widths or heights, original dimensions, fit and center crop; not subject tracking. Docker private deployment package and health checks added. CI pending. Persistent media, real AI model verification, SaaS authentication, durable workers, billing and public deployment remain open.

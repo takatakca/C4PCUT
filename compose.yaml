@@ -1,0 +1,16 @@
+services:
+  c4pcut:
+    build: .
+    ports:
+      - "127.0.0.1:8765:8765"
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 3g
+    cpus: 2.0
+    pids_limit: 128
+    tmpfs:
+      - /tmp:size=2147483648,mode=1777

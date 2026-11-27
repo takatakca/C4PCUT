@@ -21,6 +21,8 @@ LOCK = threading.Lock()
 JOBS = {}
 TOKEN = secrets.token_urlsafe(32)
 HOST = "127.0.0.1:8765"
+# Docker publishes only on host loopback. Never enable a public proxy for this prototype.
+BIND = "0.0.0.0" if os.environ.get("C4PCUT_CONTAINER") == "1" else "127.0.0.1"
 
 class Handler(BaseHTTPRequestHandler):
     def reply(self, obj, status=200):
@@ -53,6 +55,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self.valid_host():
             return self.reply({"error": "Invalid host"}, 403)
         path = urlsplit(self.path).path
+        if path == "/healthz":
+            return self.reply({"status": "ok", "mode": "private-local"})
         if path == "/api/session":
             return self.reply({"token": TOKEN})
         static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
@@ -233,7 +237,7 @@ class Handler(BaseHTTPRequestHandler):
                     if mapped:
                         subtitle.write_text(captions.to_srt(mapped),encoding="utf-8")
                     burn = captions.to_ass(mapped,caption_mode) if mapped and caption_mode != "soft" else None
-                    engine.render(source,temp,selected,job["metadata"]["audio"],subtitle if mapped and caption_mode=="soft" else None,music_path,music_gain,source_gain,burn_ass=burn)
+                    engine.render(source,temp,selected,job["metadata"]["audio"],subtitle if mapped and caption_mode=="soft" else None,music_path,music_gain,source_gain,burn_ass=burn, preset=payload.get('preset','original'), framing=payload.get('framing','fit'))
                     temp.replace(folder / f"{index}.mp4")
                 finally:
                     temp.unlink(missing_ok=True)
@@ -259,7 +263,7 @@ class Handler(BaseHTTPRequestHandler):
                     if mapped:
                         subtitle.write_text(captions.to_srt(mapped), encoding="utf-8")
                     burn = captions.to_ass(mapped, caption_mode) if mapped and caption_mode != "soft" else None
-                    engine.render(source, temp, selected, job["metadata"]["audio"], subtitle if mapped and caption_mode == "soft" else None, music_path, music_gain, source_gain, burn_ass=burn)
+                    engine.render(source, temp, selected, job["metadata"]["audio"], subtitle if mapped and caption_mode == "soft" else None, music_path, music_gain, source_gain, burn_ass=burn, preset=payload.get('preset','original'), framing=payload.get('framing','fit'))
                     temp.replace(job["folder"] / "export.mp4")
                     if mapped:
                         subtitle.replace(exported_srt)
@@ -282,7 +286,7 @@ if __name__ == "__main__":
     if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
         raise SystemExit("Install FFmpeg and ffprobe first")
     with tempfile.TemporaryDirectory(prefix="c4pcut-") as storage:
-        with ThreadingHTTPServer(("127.0.0.1", 8765), Handler) as server:
+        with ThreadingHTTPServer((BIND, 8765), Handler) as server:
             server.storage = storage
             print("C4PCUT: http://" + HOST, flush=True)
             try:

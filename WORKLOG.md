@@ -45,3 +45,8 @@
 - AI Director CI 45922109564 completed successfully (mocked local AI contract; real Ollama inference still unverified).
 - Added deterministic 15/30/60-second candidate ranking, overlap rejection, up to ten suggestions, source preview, individual and sequential batch MP4 exports, current caption/music settings and separate batch storage.
 - Added ranking, validation and real render tests. New CI pending. No semantic video analysis, virality prediction or automatic publishing.
+
+## Social exports and private Docker release candidate
+- Clipper CI 45922285900 passed; PR #2 merged to main at 30252662ab7228f2e4dafbb0e4db9ebaef816e2f.
+- Added allowlisted 720p/1080p aspect presets, fit and center crop, original mode, main and batch export integration, geometry tests.
+- Added non-root private Docker image, loopback Compose binding, resource limits, health endpoint, container CI smoke test and VPS instructions. No live server deployment performed. CI pending.
