@@ -100,3 +100,7 @@
 - Inspected current V1 permission guard, tenant access and Studio flag; no dedicated C4PCUT entitlement found. Added server-only Node reference issuer with injected authoritative access/entitlement checks, explicit route allowlist, exact body snapshots and short-lived signatures. Added Node unit tests and Node-to-Python interoperability tests. Latest CI pending. No V1 writes, live issuer, relay, billing or deployment.
 
 - Owner pricing direction: match CapCut. Recorded verified Canadian App Store monthly reference prices (CAD 0/13.49/27.99) in disabled catalog and pricing policy. Annual pricing and feature allowances remain unresolved. No billing activated. Issuer CI 45934058126 in progress before catalog commit.
+
+## Dedicated plan grant policy
+- PR #8 already merged at 4fb4212dd58fe81b067f4e69cdeddf75c3c43bf6. Issuer CI 45934058126 passed; catalog-head CI 45934101746 was still running when checked.
+- Added disabled catalog validator, explicit active bounded Free/Standard/Pro grant checks, issuer expiry capped by grant, and policy/interop tests. No real V1 grant lookup, checkout, billing or deployment. Unknown/expired grants denied; no grace-period or plan allowances assumed. Latest CI pending.

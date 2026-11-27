@@ -76,3 +76,6 @@
 - Gateway V2 CI passed and PR #7 merged. Server-only Node signing adapter implemented; requires real V1 guard and dedicated C4PCUT entitlement callback, explicit rollout flag and private key. Cross-language receiver tests added, new CI pending. Live V1 issuer and relay remain unconnected; dedicated grant, payments, worker isolation and deployment remain outstanding.
 
 - Canadian monthly pricing catalog specified: Free CAD 0, Standard CAD 13.49, Pro CAD 27.99. Billing disabled; annual rates and plan allowances not yet verified or approved. No live payment or entitlement changes.
+
+## Plan grant policy
+- Validated disabled Canadian monthly catalog separately from authorization; explicit dedicated current plan grant required for reference issuer, including Free. Grant expiry caps assertion lifetime. Tests added, latest CI pending. No real V1 product entitlement store, payments, annual prices or per-plan allowances.

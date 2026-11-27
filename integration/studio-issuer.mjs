@@ -1,6 +1,7 @@
 // Server-only reference adapter for the private C4PCUT gateway v2.
 // Never bundle into a browser; do not expose an endpoint that returns assertions.
 import { createHash, createHmac, randomBytes } from "node:crypto";
+import {activeGrant} from "./plan-policy.mjs";
 const UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 const KEY=/^[a-f0-9]{64}$/;
 const ID="[a-f0-9]{32}";
@@ -35,14 +36,15 @@ export function createIssuer({env,requireWorkspaceApiPermission,studioEnabled,lo
     if(typeof activeClientId!=="string"||typeof profileId!=="string"||!UUID.test(activeClientId)||!UUID.test(profileId))deny();
     // Must use dedicated, authoritative product state; never Social bypass or browser input.
     const grant=await lookupEntitlement(activeClientId,profileId);
-    if(grant?.clientId!==activeClientId||grant?.product!=="c4pcut"||grant?.active!==true)deny();
+    if(!activeGrant(grant,activeClientId,Math.floor(clock()/1000)))deny();
     const key=await readKey();
     if(typeof key!=="string"||!KEY.test(key))deny();
     const iat=Math.floor(clock()/1000), n=nonce();
     if(!Number.isSafeInteger(iat)||iat<0||typeof n!=="string"||!/^[a-f0-9]{32}$/.test(n))deny();
+    if(!activeGrant(grant,activeClientId,iat))deny();
     const claims={iss:"takatak-studio-gateway",aud:"c4pcut-private-v2",sub:profileId,
       client_id:activeClientId,permission:"create_content",entitlement:"c4pcut_active",
-      iat,exp:iat+30,nonce:n,method,target,body_sha256:createHash("sha256").update(bytes).digest("hex")};
+      iat,exp:Math.min(iat+30,grant.validUntil),nonce:n,method,target,body_sha256:createHash("sha256").update(bytes).digest("hex")};
     const encoded=Buffer.from(JSON.stringify(claims),"utf8").toString("base64url");
     const signature=createHmac("sha256",Buffer.from(key,"hex")).update(encoded,"ascii").digest("base64url");
     return {header:encoded+"."+signature,body:bytes};

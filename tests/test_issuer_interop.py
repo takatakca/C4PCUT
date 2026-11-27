@@ -10,7 +10,7 @@ class IssuerInterop(unittest.TestCase):
         script="""
 import {createIssuer} from './integration/studio-issuer.mjs';
 const client='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', profile='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
-const issue=createIssuer({env:{TAKATAK_C4PCUT_GATEWAY_ENABLED:'true'},studioEnabled:()=>true,requireWorkspaceApiPermission:async()=>({ok:true,access:{mode:'client_scoped',activeClientId:client,profileId:profile}}),lookupEntitlement:async()=>({clientId:client,product:'c4pcut',active:true}),readKey:async()=>'ab'.repeat(32),clock:()=>1000000,nonce:()=>'c'.repeat(32)});
+const issue=createIssuer({env:{TAKATAK_C4PCUT_GATEWAY_ENABLED:'true'},studioEnabled:()=>true,requireWorkspaceApiPermission:async()=>({ok:true,access:{mode:'client_scoped',activeClientId:client,profileId:profile}}),lookupEntitlement:async()=>({clientId:client,product:'c4pcut',active:true,plan:'pro',status:'active',validFrom:900,validUntil:1100}),readKey:async()=>'ab'.repeat(32),clock:()=>1000000,nonce:()=>'c'.repeat(32)});
 const result=await issue({method:'GET',target:'/api/session',body:Buffer.alloc(0)});
 console.log(result.header);
 """
