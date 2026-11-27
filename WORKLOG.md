@@ -62,3 +62,5 @@
 - Saved-project CI was in progress at start; previous social/container CI passed.
 - Added single-worker bounded in-memory export queue, actual FFmpeg timestamp progress, cancellation and temporary-file cleanup, main UI polling, quality presets, QHD/4K geometry and duration limits, persisted quality selection.
 - Added queue ordering/cancel, render execution and preset validation tests. New CI pending. Clipper still renders synchronously, queue not durable, no rendered preview or 4K benchmark yet.
+
+- Saved-project CI 45922606787 passed. Added real HTTP submission/poll/download integration coverage, controlled cancellation test protecting previous export, and portable progress-file reading. Latest CI pending.

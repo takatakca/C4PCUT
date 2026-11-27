@@ -22,10 +22,10 @@ def run_render(args, duration, cancel, progress, cwd=None, timeout=300):
     if cancel.is_set():
         raise Cancelled()
     args=args[:1]+["-progress","pipe:1","-nostats"]+args[1:]
-    with tempfile.TemporaryFile() as events, tempfile.TemporaryFile() as errors:
-        with subprocess.Popen(args,stdout=events,stderr=errors,cwd=cwd) as process:
+    with tempfile.TemporaryDirectory(prefix="c4pcut-progress-") as folder, tempfile.TemporaryFile() as errors:
+        path=Path(folder)/"progress.log"
+        with path.open("wb") as events, path.open("rb") as reader, subprocess.Popen(args,stdout=events,stderr=errors,cwd=cwd) as process:
             started=time.monotonic()
-            cursor=0
             fragment=b""
             try:
                 while process.poll() is None:
@@ -33,10 +33,8 @@ def run_render(args, duration, cancel, progress, cwd=None, timeout=300):
                         raise Cancelled()
                     if time.monotonic()-started>timeout:
                         raise subprocess.TimeoutExpired(args,timeout)
-                    # pread avoids altering the shared write position used by FFmpeg.
-                    import os
-                    data=os.pread(events.fileno(),65536,cursor)
-                    cursor+=len(data)
+                    # Separate file handles preserve independent read/write offsets.
+                    data=reader.read(65536)
                     lines=(fragment+data).split(b"\n")
                     fragment=lines.pop()
                     for line in lines:
