@@ -13,6 +13,7 @@ import music
 import director
 import clipper
 import projects
+import owner_auth
 from render_queue import RenderQueue, Cancelled
 from contextlib import nullcontext
 import re
@@ -29,12 +30,35 @@ HOST = "127.0.0.1:8765"
 BIND = "0.0.0.0" if os.environ.get("C4PCUT_CONTAINER") == "1" else "127.0.0.1"
 
 class Handler(BaseHTTPRequestHandler):
+    def security_headers(self):
+        self.send_header("X-Content-Type-Options","nosniff")
+        self.send_header("X-Frame-Options","DENY")
+        self.send_header("Referrer-Policy","no-referrer")
+        self.send_header("Cross-Origin-Resource-Policy","same-origin")
+        self.send_header("Content-Security-Policy","default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+        self.send_header("Permissions-Policy","camera=(), microphone=(), geolocation=()")
+
+    def owner_allowed(self):
+        if owner_auth.authorized(self.headers.get("Authorization"),getattr(self.server,"owner_digest",None)):
+            return True
+        data=b'{"error":"Owner authentication required"}'
+        self.send_response(401)
+        self.send_header("WWW-Authenticate",'Basic realm="C4PCUT private owner", charset="UTF-8"')
+        self.send_header("Content-Type","application/json")
+        self.send_header("Content-Length",str(len(data)))
+        self.send_header("Cache-Control","no-store")
+        self.security_headers()
+        self.end_headers()
+        self.wfile.write(data)
+        return False
+
     def reply(self, obj, status=200):
         data = json.dumps(obj).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
+        self.security_headers()
         self.end_headers()
         self.wfile.write(data)
 
@@ -44,7 +68,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(path.stat().st_size))
-        self.send_header("X-Content-Type-Options", "nosniff")
+        self.security_headers()
         self.send_header("Cache-Control", "no-store")
         if download:
             self.send_header("Content-Disposition", 'attachment; filename="c4pcut-export.mp4"')
@@ -61,6 +85,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == "/healthz":
             return self.reply({"status": "ok", "mode": "private-local"})
+        if not self.owner_allowed():
+            return
         if path == "/api/session":
             return self.reply({"token": TOKEN})
         static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
@@ -86,7 +112,11 @@ class Handler(BaseHTTPRequestHandler):
         return self.reply({"error": "Not found"}, 404)
 
     def do_POST(self):
-        if not self.valid_host() or self.headers.get("X-C4PCUT-Token") != TOKEN:
+        if not self.valid_host():
+            return self.reply({"error":"Invalid host"},403)
+        if not self.owner_allowed():
+            return
+        if not owner_auth.allowed_origin(self.headers.get("Origin"),self.headers.get("Host"),self.headers.get("Sec-Fetch-Site")) or not secrets.compare_digest(self.headers.get("X-C4PCUT-Token","").encode("utf-8"),TOKEN.encode("utf-8")):
             return self.reply({"error": "Forbidden"}, 403)
         path = urlsplit(self.path).path
         if path in {"/api/render/status","/api/render/cancel"}:
@@ -339,6 +369,12 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
         raise SystemExit("Install FFmpeg and ffprobe first")
+    password=os.environ.pop("C4PCUT_OWNER_PASSWORD",None)
+    try:
+        digest=owner_auth.password_digest(password) if password is not None else None
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    del password
     root=os.environ.get("C4PCUT_DATA_DIR")
     if root:
         root=Path(root).resolve()
@@ -347,6 +383,7 @@ if __name__ == "__main__":
     with context as storage:
         with ThreadingHTTPServer((BIND, 8765), Handler) as server:
             server.storage = storage
+            server.owner_digest = digest
             server.persistent = bool(root)
             print("C4PCUT: http://" + HOST, flush=True)
             try:
