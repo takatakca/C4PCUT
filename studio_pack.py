@@ -28,7 +28,7 @@ def parse_brief(value):
         name=text(item.get("name"),60)
         if any(c["name"].lower()==name.lower() for c in clean):
             raise ValueError("Duplicate character")
-        profile=text(item.get("profile"),250,allow_empty=True)
+        profile="" if item.get("profile")=="" else text(item.get("profile"),250)
         clean.append({"name":name,"profile":profile})
     return {"title":text(value.get("title"),120),"brief":text(value.get("brief"),1000),
             "audience":text(value.get("audience"),150),"language":language,"characters":clean}

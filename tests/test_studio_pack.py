@@ -26,6 +26,8 @@ class StudioPackTests(unittest.TestCase):
                 studio_pack.parse_pack(bad)
         p=pack();p["project"]["brief"]="x"*1001
         with self.assertRaises(ValueError):studio_pack.parse_pack(p)
+        p=pack();p["characters"][0]["profile"]="   "
+        with self.assertRaises(ValueError):studio_pack.parse_pack(p)
         p=pack();p["characters"]*=2
         with self.assertRaises(ValueError):studio_pack.parse_pack(p)
     def test_saved_project_roundtrip(self):

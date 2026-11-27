@@ -84,3 +84,5 @@
 ## Studio creative pack interoperability
 - Workspace CI 45933244482 passed; PR #6 merged at 5a4939941baae22824ddeb37a62d3f901adb2538.
 - Read V1 main 09c6f21f42d0ee39385ec5e11c389fba6a191205 workspace permission gate and actual Studio production_request_pack v1 contract. Added local creative-only pack parsing, authenticated import endpoint, explicit attachment, saved manifest field and regression tests. No V1 writes or SSO claims. Latest CI pending.
+
+- Added pack HTTP import/save/open regression to workspace isolation test, restored canonical Director prompt on reopen, and matched upstream empty character-profile semantics. Latest CI pending.

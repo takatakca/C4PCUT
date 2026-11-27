@@ -228,7 +228,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Project not found")
                 job,state=projects.restore(folder)
                 self.jobs[job_id]=job
-                return self.reply({"id":job_id,**job["metadata"],"clips":job["clips"],"state":state,"music":job.get("music_analysis"),"source_url":"/api/source/"+job_id})
+                return self.reply({"id":job_id,**job["metadata"],"clips":job["clips"],"state":state,"director_prompt":studio_pack.director_prompt(state["studio_brief"]) if state["studio_brief"] else "","music":job.get("music_analysis"),"source_url":"/api/source/"+job_id})
             if path == "/api/projects/delete":
                 folder=Path(self.storage)/job_id
                 if not folder.is_dir() or folder.is_symlink():

@@ -62,7 +62,17 @@ class WorkspaceTests(unittest.TestCase):
                 self.assertEqual(request("beta","/api/projects/save",{"id":a,"name":"Stolen"})[0],400)
                 self.assertEqual(request("beta","/api/projects/open",{"id":a})[0],400)
                 self.assertEqual(request("beta","/api/projects/delete",{"id":a})[0],400)
-                self.assertEqual(request("alpha","/api/projects/save",{"id":a,"name":"Alpha","selected":[0]})[0],200)
+                pack={"studio":"TAKATAKSTUDIO","version":1,"kind":"production_request_pack","project":{"title":"Alpha brief","brief":"Edit a video","audience":"Music fans","language":"en","clientId":"beta"},"characters":[],"jobs":[{"command":"not authorized"}]}
+                code,raw=request("alpha","/api/studio/import-pack",pack)
+                self.assertEqual(code,200)
+                brief=json.loads(raw)["brief"]
+                self.assertNotIn("clientId",brief)
+                self.assertEqual(request("alpha","/api/projects/save",{"id":a,"name":"Alpha","selected":[0],"studio_brief":brief})[0],200)
+                code,raw=request("alpha","/api/projects/open",{"id":a})
+                self.assertEqual(code,200)
+                self.assertEqual(json.loads(raw)["state"]["studio_brief"],brief)
+                self.assertIn("Alpha brief",json.loads(raw)["director_prompt"])
+                self.assertEqual(request("beta","/api/projects/open",{"id":a})[0],400)
                 self.assertEqual([x["id"] for x in json.loads(request("beta","/api/projects/list",{})[1])["projects"]],[b])
                 self.assertEqual(request("beta","/api/projects/list",{},token=registry["alpha"].token)[0],403)
                 registry["alpha"].ledger.reserve(a,"main",3)

@@ -332,7 +332,7 @@ $("open-project").addEventListener("click",()=>{
     if(objectURL)URL.revokeObjectURL(objectURL);
     objectURL=URL.createObjectURL(new Blob([raw],{type:sourceMime}));
     job=result;clearDirector();clearClipper();resetMusic();clips=result.clips;visuals.clear();history=[];future=[];current=-1;activeCue=-1;
-    const s=result.state;setStudioBrief(s.studio_brief||null);selected=new Set(s.selected);edits=s.edits;cues=s.cues;musicData=result.music;musicName="Saved soundtrack";
+    const s=result.state;setStudioBrief(s.studio_brief||null);$("director-prompt").value=(result.director_prompt||"").slice(0,1500);selected=new Set(s.selected);edits=s.edits;cues=s.cues;musicData=result.music;musicName="Saved soundtrack";
     $("use-music").checked=s.use_music;$("music-gain").value=s.music_gain;$("source-gain").value=s.source_gain;$("caption-mode").value=s.caption_mode;$("export-preset").value=s.preset;$("export-framing").value=s.framing;$("export-quality").value=s.quality||"standard";
     $("project-name").value=s.name;$("project").textContent=s.name;$("video").src=objectURL;$("placeholder").hidden=true;$("format").textContent=job.width+" × "+job.height;
     refreshCaption();hideExports();drawTimeline();
