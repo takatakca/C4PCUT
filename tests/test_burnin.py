@@ -23,7 +23,9 @@ class BurnTests(unittest.TestCase):
             engine.run(["ffmpeg","-nostdin","-y","-f","lavfi","-i","color=black:s=320x180:r=25:d=2","-c:v","libx264","-pix_fmt","yuv420p",str(src)])
             ass=captions.to_ass([{"start":.2,"end":1.5,"text":"TEST CAPTION"}],"bold")
             engine.render(src,out,[{"start":0,"end":2}],False,burn_ass=ass)
-            pixels=subprocess.run(["ffmpeg","-v","error","-ss",".7","-i",str(out),"-frames:v","1","-f","rawvideo","-pix_fmt","gray","-"],check=True,capture_output=True).stdout
+            frame=subprocess.run(["ffmpeg","-v","error","-ss","0.7","-i",str(out),"-frames:v","1","-f","rawvideo","-pix_fmt","gray","-threads","1","-"],capture_output=True)
+            self.assertEqual(frame.returncode,0,frame.stderr.decode(errors="replace"))
+            pixels=frame.stdout
             self.assertEqual(len(pixels),320*180)
             self.assertGreater(sum(x>180 for x in pixels),10)
             self.assertAlmostEqual(engine.probe(out)["duration"],2,delta=.15)

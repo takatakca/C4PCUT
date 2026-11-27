@@ -33,3 +33,6 @@
 - Cinematic CI 45921757518 passed.
 - Added fixed classic/bold/karaoke ASS styles, validated mode selection, source preview styling and post-concat burn-in with output-time cues; SRT export preserved.
 - Karaoke timing is estimated uniformly from cue duration, not speech alignment. Added ASS injection and rendered-pixel tests; current CI pending.
+
+## Burn-in CI correction
+- CI 45921934787 failed only at the raw grayscale frame extraction command in the burn-in test (render completed). Changed seek to canonical 0.7 and limited output encoder threads; now reports FFmpeg stderr on failure. Reverification pending.

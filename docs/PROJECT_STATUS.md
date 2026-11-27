@@ -32,3 +32,5 @@
 
 ## Burned-in captions
 - Classic, bold and estimated karaoke export styles implemented via FFmpeg/libass; browser preview approximates the style, SRT sidecar remains available. Exact word timestamps from a speech model, animated per-word transforms, and rendered preview remain planned. New CI pending.
+
+- Burn-in CI 45921934787: 14 tests passed, one frame-extraction error. Test command adjusted; rerun required.
