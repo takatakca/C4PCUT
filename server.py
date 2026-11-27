@@ -12,6 +12,8 @@ import captions
 import music
 import director
 import clipper
+import projects
+from contextlib import nullcontext
 import re
 import os
 import sys
@@ -64,6 +66,8 @@ class Handler(BaseHTTPRequestHandler):
             name, mime = static[path]
             return self.file(ROOT / name, mime)
         parts = path.split("/")
+        if len(parts) == 4 and parts[1:3] == ["api", "source"] and parts[3] in JOBS:
+            return self.file(JOBS[parts[3]]["folder"] / "source.media", "application/octet-stream")
         if len(parts) == 4 and parts[1:3] == ["api", "export"] and parts[3] in JOBS:
             return self.file(JOBS[parts[3]]["folder"] / "export.mp4", "video/mp4", True)
         if len(parts) == 4 and parts[1:3] == ["api", "captions"] and parts[3] in JOBS:
@@ -89,7 +93,7 @@ class Handler(BaseHTTPRequestHandler):
             size = int(self.headers.get("Content-Length", "0"))
             self.connection.settimeout(60)
             if path == "/api/import":
-                if not 0 < size <= engine.MAX_BYTES or len(JOBS) >= 8:
+                if not 0 < size <= engine.MAX_BYTES or sum(1 for p in Path(self.server.storage).iterdir() if projects.ID.fullmatch(p.name) and p.is_dir()) >= projects.MAX_PROJECTS:
                     raise ValueError("Maximum 250 MB per video and 8 imports per session")
                 job_id = secrets.token_hex(16)
                 folder = Path(self.server.storage) / job_id
@@ -140,8 +144,29 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < size <= 262144:
                 raise ValueError("Invalid request size")
             payload = json.loads(self.rfile.read(size))
+            if path == "/api/projects/list":
+                return self.reply({"projects":projects.list_saved(Path(self.server.storage)), "persistent":self.server.persistent})
             job_id = payload["id"]
+            if not isinstance(job_id,str) or not projects.ID.fullmatch(job_id):
+                raise ValueError("Invalid project ID")
+            if path == "/api/projects/open":
+                folder=Path(self.server.storage)/job_id
+                if not folder.is_dir() or folder.is_symlink():
+                    raise ValueError("Project not found")
+                job,state=projects.restore(folder)
+                JOBS[job_id]=job
+                return self.reply({"id":job_id,**job["metadata"],"clips":job["clips"],"state":state,"music":job.get("music_analysis"),"source_url":"/api/source/"+job_id})
+            if path == "/api/projects/delete":
+                folder=Path(self.server.storage)/job_id
+                if not folder.is_dir() or folder.is_symlink():
+                    raise ValueError("Project not found")
+                shutil.rmtree(folder)
+                JOBS.pop(job_id,None)
+                return self.reply({"deleted":True})
             job = JOBS[job_id]
+            if path == "/api/projects/save":
+                state=projects.save(job,payload)
+                return self.reply({"saved":True,"name":state["name"]})
             source = job["folder"] / "source.media"
             if path == "/api/analyze":
                 job["clips"] = engine.analyze(source, job["metadata"])
@@ -285,9 +310,15 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
         raise SystemExit("Install FFmpeg and ffprobe first")
-    with tempfile.TemporaryDirectory(prefix="c4pcut-") as storage:
+    root=os.environ.get("C4PCUT_DATA_DIR")
+    if root:
+        root=Path(root).resolve()
+        root.mkdir(mode=0o700,parents=True,exist_ok=True)
+    context=nullcontext(root) if root else tempfile.TemporaryDirectory(prefix="c4pcut-")
+    with context as storage:
         with ThreadingHTTPServer((BIND, 8765), Handler) as server:
             server.storage = storage
+            server.persistent = bool(root)
             print("C4PCUT: http://" + HOST, flush=True)
             try:
                 server.serve_forever()

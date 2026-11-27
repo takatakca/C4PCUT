@@ -20,3 +20,6 @@ Download required exports first. Run docker compose down to remove the service; 
 
 ## Before public SaaS
 Require authentication and workspace ownership enforcement for every resource; media sandboxing and network egress controls, disk quotas, persistent storage, durable worker queue, cancellation and job limits, security/load review, TLS, account/billing integration and real model validation. Public deployment is not approved by this package.
+
+## Optional persistent project storage
+For a private owner-only deployment, use `docker compose -f compose.yaml -f compose.persist.yaml up -d --build`. This creates a named volume at /data. Explicit Save stores the edit manifest and soundtrack snapshot; sources and exports remain on disk until deletion. This volume is NOT size-limited by Compose; monitor available space, back it up and use a dedicated quota-limited filesystem before larger workloads. Do not run `down -v` unless deliberately deleting project data. Default Compose without the overlay remains ephemeral. No public access is supported.

@@ -72,6 +72,10 @@ function updateButtons() {
   $("file").disabled = busy;
   $("analyze").disabled = busy || !job;
   $("render").disabled = busy || !selected.size;
+  $("save-project").disabled=busy||!job;
+  $("open-project").disabled=busy||!$("saved-projects").value;
+  $("delete-project").disabled=busy||(!job&&!$("saved-projects").value);
+  $("project-name").disabled=busy;$("saved-projects").disabled=busy;
   $("export-preset").disabled=busy;$("export-framing").disabled=busy||$("export-preset").value==="original";
   clipperButtons();
   $("director-plan").disabled=busy||!clips.length;
@@ -164,7 +168,7 @@ $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
   step(0);log("Importing "+file.name);const result=await request("/api/import",file,true);
   job=result;clearDirector();clearClipper();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
-  if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;
+  if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;$("project-name").value=file.name.slice(0,160);
   $("format").textContent=job.width+" × "+job.height;step(1,true);log("Media verified · "+format(job.duration));
 });$("file").value="";});
 $("analyze").addEventListener("click",()=>action(async()=>{
@@ -186,7 +190,7 @@ $("ticks").addEventListener("click",e=>{if(!job)return;const b=$("ticks").getBou
 window.addEventListener("resize",updatePlayhead);
 $("tracks").addEventListener("scroll",updatePlayhead);
 $("file").disabled=true;drawTimeline();
-fetch("/api/session").then(r=>r.json()).then(data=>{token=data.token;updateButtons();log("Local processing engine ready");}).catch(()=>log("Unable to connect to local engine",true));
+fetch("/api/session").then(r=>r.json()).then(data=>{token=data.token;updateButtons();log("Local processing engine ready");refreshProjects().catch(e=>log(e.message,true));}).catch(()=>log("Unable to connect to local engine",true));
 
 function refreshCaption(){$("caption-text").value=cues[activeCue]?.text||"";}
 function updateCaptionOverlay(){
@@ -283,3 +287,50 @@ $("clipper-render-all").addEventListener("click",()=>action(async()=>{
 }));
 
 for(const id of ["export-preset","export-framing"])$(id).addEventListener("change",()=>{hideExports();updateButtons();log("Export format updated; preview remains source footage");});
+
+async function refreshProjects(){
+  const data=await request("/api/projects/list",{});
+  const select=$("saved-projects"), prior=select.value;
+  select.replaceChildren(new Option("Saved projects",""));
+  for(const p of data.projects)select.add(new Option(p.name+" · "+format(p.duration),p.id));
+  if([...select.options].some(o=>o.value===prior))select.value=prior;
+  $("storage-mode").textContent=data.persistent?"Persistent storage":"Session only — restart clears files";
+  updateButtons();
+}
+$("saved-projects").addEventListener("change",updateButtons);
+$("save-project").addEventListener("click",()=>action(async()=>{
+  const result=await request("/api/projects/save",{id:job.id,name:$("project-name").value,selected:[...selected],edits,...clipperSettings()});
+  $("project").textContent=result.name;await refreshProjects();$("saved-projects").value=job.id;log("Saved project: "+result.name);
+}));
+$("open-project").addEventListener("click",()=>{
+  if(busy||!$("saved-projects").value)return;
+  if(job&&!window.confirm("Open saved project? Unsaved changes in the current editor will be discarded."))return;
+  action(async()=>{
+    const result=await request("/api/projects/open",{id:$("saved-projects").value});
+    const response=await fetch(result.source_url);if(!response.ok)throw new Error("Saved source unavailable");
+    const raw=await response.blob();
+    const suffix=result.state.name.split(".").pop().toLowerCase(), mime={mp4:"video/mp4",mov:"video/quicktime",webm:"video/webm",m4v:"video/mp4"}[suffix]||"video/mp4";
+    if(objectURL)URL.revokeObjectURL(objectURL);
+    objectURL=URL.createObjectURL(new Blob([raw],{type:mime}));
+    job=result;clearDirector();clearClipper();resetMusic();clips=result.clips;visuals.clear();history=[];future=[];current=-1;activeCue=-1;
+    const s=result.state;selected=new Set(s.selected);edits=s.edits;cues=s.cues;musicData=result.music;musicName="Saved soundtrack";
+    $("use-music").checked=s.use_music;$("music-gain").value=s.music_gain;$("source-gain").value=s.source_gain;$("caption-mode").value=s.caption_mode;$("export-preset").value=s.preset;$("export-framing").value=s.framing;
+    $("project-name").value=s.name;$("project").textContent=s.name;$("video").src=objectURL;$("placeholder").hidden=true;$("format").textContent=job.width+" × "+job.height;
+    refreshCaption();hideExports();drawTimeline();
+    if(clips.length){try{const v=await request("/api/visuals",{id:job.id});visuals=new Map(v.visuals.map(x=>[x.id,x]));}catch(e){log("Visual extraction failed: "+e.message,true);}}
+    drawTimeline();log("Opened saved project: "+s.name);
+  });
+});
+$("delete-project").addEventListener("click",()=>{
+  const id=$("saved-projects").value||job?.id;if(busy||!id)return;
+  if(!window.confirm("Permanently delete this project and all its media and exports?"))return;
+  action(async()=>{
+    await request("/api/projects/delete",{id});
+    if(job?.id===id){
+      if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;$("video").removeAttribute("src");$("video").load();
+      job=null;clearDirector();clearClipper();resetMusic();clips=[];selected.clear();edits={};cues=[];visuals.clear();history=[];future=[];current=-1;activeCue=-1;refreshCaption();hideExports();
+      $("placeholder").hidden=false;$("project").textContent="Untitled sequence";$("project-name").value="";$("format").textContent="NO MEDIA";
+    }
+    await refreshProjects();log("Project deleted");
+  });
+});

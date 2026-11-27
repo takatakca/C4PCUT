@@ -50,3 +50,8 @@
 - Clipper CI 45922285900 passed; PR #2 merged to main at 30252662ab7228f2e4dafbb0e4db9ebaef816e2f.
 - Added allowlisted 720p/1080p aspect presets, fit and center crop, original mode, main and batch export integration, geometry tests.
 - Added non-root private Docker image, loopback Compose binding, resource limits, health endpoint, container CI smoke test and VPS instructions. No live server deployment performed. CI pending.
+
+## Saved projects milestone
+- Social format/container CI 45922432058 was in progress when this increment began.
+- Added validated versioned JSON project saves, source reopen, soundtrack snapshot isolation, explicit deletion, saved-project picker and optional persistent Docker volume. Default remains ephemeral. Added round-trip and validation tests; new CI pending.
+- No durable render queue, multi-user ownership, storage-volume quota or autosave. Unsaved orphan folders need owner cleanup; browser preview uses a source blob, not ranged streaming.

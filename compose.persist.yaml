@@ -1,0 +1,8 @@
+services:
+  c4pcut:
+    environment:
+      C4PCUT_DATA_DIR: /data
+    volumes:
+      - c4pcut-data:/data
+volumes:
+  c4pcut-data:

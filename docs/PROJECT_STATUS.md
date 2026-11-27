@@ -44,3 +44,6 @@
 
 ## Social formats / private release candidate
 - Implemented 9:16, 1:1, 16:9 at 720/1080 widths or heights, original dimensions, fit and center crop; not subject tracking. Docker private deployment package and health checks added. CI pending. Persistent media, real AI model verification, SaaS authentication, durable workers, billing and public deployment remain open.
+
+## Saved projects
+- Explicit save/open/delete and versioned validated edit manifests, source media and immutable saved soundtrack snapshots, timeline regeneration. Persistent directory/Compose volume opt-in; default remains temporary. Eight folder cap. No persistent undo history, autosave, batch restoration, storage quota or public access; new CI pending.

@@ -43,3 +43,6 @@ Analyze footage, choose 15/30/60 seconds, up to ten suggestions and a fixed look
 
 ## Social exports and private deployment
 Choose original, vertical, square or landscape formats in 720p/1080p presets. Fit pads; crop centers the image (not AI subject tracking). Both main export and clipper use the selected format. Preview remains source footage. See [private Docker deployment guide](docs/DEPLOYMENT.md). No public deployment or persistent library is included.
+
+## Saved projects
+Save explicitly to preserve source media, validated scene edits, captions, export settings and a soundtrack snapshot. Open restores the saved edit and regenerates timeline visuals. Undo history and clipper batches are not restored. Default storage remains temporary; set C4PCUT_DATA_DIR to an owner-only persistent directory or use the Compose persistence overlay. Delete permanently removes the selected project and media after confirmation. Maximum eight imported project folders per storage root; abandoned unsaved imports may require owner cleanup. Use browser-supported MP4 footage for reliable reopen playback. See deployment guide for disk precautions.

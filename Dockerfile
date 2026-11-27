@@ -1,5 +1,6 @@
 FROM python:3.11-slim-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core && rm -rf /var/lib/apt/lists/* && useradd --system --uid 10001 --create-home editor
+RUN mkdir /data && chown 10001:10001 /data
 WORKDIR /app
 COPY --chown=10001:10001 *.py ./
 COPY --chown=10001:10001 web ./web
