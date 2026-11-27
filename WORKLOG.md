@@ -146,3 +146,7 @@
 ## Monitor effect preview
 - Existing PR #16 CI 45943093156 passed; merged at 539ad95e7a8dca71e1b42c36224d84891753c2d4. Preserved existing admin dashboard work rather than duplicating.
 - Added optional approximate source-time visual preview for committed mono/warm/contrast/fade/zoom edits, respecting selected and trimmed scenes. Toggle, seek, undo/redo and timeline changes refresh preview. Pure JS and Chromium scenarios added. Latest CI pending. No frame-accurate composite, new commercial fees or public deployment.
+
+## Edited sequence playback
+- PR #17 CI 45943695433 passed; merged at f8769da88a5afe4e6c44d471a2178c8924233602.
+- Added source-time playback of selected trimmed ranges with edited position and duration, stop, scrubber, and cut skipping. Editing or manual source seeking cancels active playback. Unit gap/trim tests and browser trimmed playback smoke added. Exact CI pending. Source audio only; not frame-accurate or a mixed soundtrack preview. No deployment/payment changes.

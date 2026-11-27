@@ -140,7 +140,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(self.ledger.summary(self.request_limit) if self.ledger else {"enabled":False})
         if path == "/api/session":
             return self.reply({"token": self.csrf_token, "workspace": self.scope, "plan":self.plan, "capabilities":self.policy.public() if self.policy else None})
-        static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript"), "/plan-ui.js": ("plan-ui.js", "text/javascript"), "/effect-preview.js": ("effect-preview.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
+        static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript"), "/plan-ui.js": ("plan-ui.js", "text/javascript"), "/effect-preview.js": ("effect-preview.js", "text/javascript"), "/sequence-preview.js": ("sequence-preview.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
         if path in static:
             name, mime = static[path]
             return self.file(ROOT / name, mime)
