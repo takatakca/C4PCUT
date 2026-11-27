@@ -1,7 +1,7 @@
 "use strict";
 const $ = id => document.getElementById(id);
 const commands = ["project = import_media()", "metadata = probe_media(project)", "scenes = detect_scenes(project)", "timeline = build_timeline(scenes)", "render(selected_clips)"];
-let token, job, clips = [], selected = new Set(), current = -1, busy = false, objectURL;
+let token, job, clips = [], selected = new Set(), current = -1, busy = false, objectURL, sourceMime="", activeRender=null;
 let visuals = new Map(), history = [], future = [], edits = {}, cues = [], activeCue = -1;
 let musicData=null, sourceBeats=null, musicName="", directorPlan=null;
 let clipBatch=null, clipCandidates=[], clipDownloads=new Map();
@@ -12,7 +12,7 @@ function clipperButtons(){
   for(const id of ["clipper-target","clipper-count","clipper-style"])$(id).disabled=busy;
   $("clipper-results").querySelectorAll("button").forEach(b=>b.disabled=busy);
 }
-function clipperSettings(){return {cues,caption_mode:$("caption-mode").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)};}
+function clipperSettings(){return {cues,caption_mode:$("caption-mode").value,preset:$("export-preset").value,framing:$("export-framing").value,quality:$("export-quality").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)};}
 function drawClipper(){
   const parent=$("clipper-results");parent.replaceChildren();
   for(const c of clipCandidates){
@@ -72,6 +72,12 @@ function updateButtons() {
   $("file").disabled = busy;
   $("analyze").disabled = busy || !job;
   $("render").disabled = busy || !selected.size;
+  $("export-quality").disabled=busy;$("cancel-render").disabled=!activeRender;
+  $("save-project").disabled=busy||!job;
+  $("open-project").disabled=busy||!$("saved-projects").value||$("saved-projects").selectedOptions[0]?.dataset.saved!=="true";
+  $("delete-project").disabled=busy||(!job&&!$("saved-projects").value);
+  $("project-name").disabled=busy;$("saved-projects").disabled=busy;
+  $("export-preset").disabled=busy;$("export-framing").disabled=busy||$("export-preset").value==="original";
   clipperButtons();
   $("director-plan").disabled=busy||!clips.length;
   $("director-apply").disabled=busy||!directorPlan;
@@ -162,8 +168,8 @@ async function action(fn){
 $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)return;action(async()=>{
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
   step(0);log("Importing "+file.name);const result=await request("/api/import",file,true);
-  job=result;clearDirector();clearClipper();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
-  if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;
+  job=result;sourceMime=["video/mp4","video/quicktime","video/webm"].includes(file.type)?file.type:"";$("saved-projects").value="";clearDirector();clearClipper();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
+  if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;$("project-name").value=file.name.slice(0,160);
   $("format").textContent=job.width+" × "+job.height;step(1,true);log("Media verified · "+format(job.duration));
 });$("file").value="";});
 $("analyze").addEventListener("click",()=>action(async()=>{
@@ -176,7 +182,23 @@ $("analyze").addEventListener("click",()=>action(async()=>{
 }));
 $("render").addEventListener("click",()=>action(async()=>{
   step(4);hideExports();log("Rendering "+selected.size+" selected scenes…");
-  const result=await request("/api/render",{id:job.id,clips:[...selected],edits,cues,caption_mode:$("caption-mode").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)});step(4,true);log("MP4 export complete");$("download").href=result.url;$("download").hidden=false;if(result.captions_url){$("download-srt").href=result.captions_url;$("download-srt").hidden=false;}connect(4,$("download"));
+  $("render-progress").value=0;$("render-status").textContent="Submitting";
+  try{
+    const submitted=await request("/api/render",{id:job.id,clips:[...selected],edits,...clipperSettings()});
+    activeRender=submitted.render_id;updateButtons();
+    while(true){
+      const state=await request("/api/render/status",{render_id:activeRender});
+      $("render-progress").value=state.progress;$("render-status").textContent=state.status+" · "+state.progress+"%";
+      if(state.status==="completed"){
+        const result=state.result;step(4,true);log("MP4 export complete");$("download").href=result.url;$("download").hidden=false;
+        if(result.captions_url){$("download-srt").href=result.captions_url;$("download-srt").hidden=false;}
+        connect(4,$("download"));break;
+      }
+      if(state.status==="failed"||state.status==="cancelled"){log("Render "+state.status,state.status==="failed");break;}
+      await new Promise(resolve=>setTimeout(resolve,600));
+    }
+  }finally{activeRender=null;updateButtons();}
+
 }));
 $("video").addEventListener("timeupdate",()=>{$("time").textContent=format($("video").currentTime);updatePlayhead();updateCaptionOverlay();});
 $("undo").addEventListener("click",()=>restore(history,future));
@@ -185,7 +207,7 @@ $("ticks").addEventListener("click",e=>{if(!job)return;const b=$("ticks").getBou
 window.addEventListener("resize",updatePlayhead);
 $("tracks").addEventListener("scroll",updatePlayhead);
 $("file").disabled=true;drawTimeline();
-fetch("/api/session").then(r=>r.json()).then(data=>{token=data.token;updateButtons();log("Local processing engine ready");}).catch(()=>log("Unable to connect to local engine",true));
+fetch("/api/session").then(r=>r.json()).then(data=>{token=data.token;updateButtons();log("Local processing engine ready");refreshProjects().catch(e=>log(e.message,true));}).catch(()=>log("Unable to connect to local engine",true));
 
 function refreshCaption(){$("caption-text").value=cues[activeCue]?.text||"";}
 function updateCaptionOverlay(){
@@ -280,3 +302,55 @@ $("clipper-render-all").addEventListener("click",()=>action(async()=>{
   }
   $("clipper-status").textContent=(clipCandidates.length-failures)+" / "+clipCandidates.length+" clips rendered in this batch";
 }));
+
+for(const id of ["export-preset","export-framing","export-quality"])$(id).addEventListener("change",()=>{hideExports();updateButtons();log("Export format updated; preview remains source footage");});
+
+async function refreshProjects(){
+  const data=await request("/api/projects/list",{});
+  const select=$("saved-projects"), prior=select.value;
+  select.replaceChildren(new Option("Saved projects",""));
+  for(const p of data.projects){const opt=new Option(p.name+(p.saved?" · "+format(p.duration):" (delete only)"),p.id);opt.dataset.saved=String(p.saved);select.add(opt);}
+  if([...select.options].some(o=>o.value===prior))select.value=prior;
+  $("storage-mode").textContent=data.persistent?"Persistent storage":"Session only — restart clears files";
+  updateButtons();
+}
+$("saved-projects").addEventListener("change",updateButtons);
+$("save-project").addEventListener("click",()=>action(async()=>{
+  const result=await request("/api/projects/save",{id:job.id,name:$("project-name").value,source_mime:sourceMime,selected:[...selected],edits,...clipperSettings()});
+  $("project").textContent=result.name;await refreshProjects();$("saved-projects").value=job.id;log("Saved project: "+result.name);
+}));
+$("open-project").addEventListener("click",()=>{
+  if(busy||!$("saved-projects").value||$("saved-projects").selectedOptions[0]?.dataset.saved!=="true")return;
+  if(job&&!window.confirm("Open saved project? Unsaved changes in the current editor will be discarded."))return;
+  action(async()=>{
+    const result=await request("/api/projects/open",{id:$("saved-projects").value});
+    const response=await fetch(result.source_url);if(!response.ok)throw new Error("Saved source unavailable");
+    const raw=await response.blob();
+    sourceMime=result.state.source_mime;
+    if(objectURL)URL.revokeObjectURL(objectURL);
+    objectURL=URL.createObjectURL(new Blob([raw],{type:sourceMime}));
+    job=result;clearDirector();clearClipper();resetMusic();clips=result.clips;visuals.clear();history=[];future=[];current=-1;activeCue=-1;
+    const s=result.state;selected=new Set(s.selected);edits=s.edits;cues=s.cues;musicData=result.music;musicName="Saved soundtrack";
+    $("use-music").checked=s.use_music;$("music-gain").value=s.music_gain;$("source-gain").value=s.source_gain;$("caption-mode").value=s.caption_mode;$("export-preset").value=s.preset;$("export-framing").value=s.framing;$("export-quality").value=s.quality||"standard";
+    $("project-name").value=s.name;$("project").textContent=s.name;$("video").src=objectURL;$("placeholder").hidden=true;$("format").textContent=job.width+" × "+job.height;
+    refreshCaption();hideExports();drawTimeline();
+    if(clips.length){try{const v=await request("/api/visuals",{id:job.id});visuals=new Map(v.visuals.map(x=>[x.id,x]));}catch(e){log("Visual extraction failed: "+e.message,true);}}
+    drawTimeline();log("Opened saved project: "+s.name);
+  });
+});
+$("delete-project").addEventListener("click",()=>{
+  const id=$("saved-projects").value||job?.id;if(busy||!id)return;
+  const name=$("saved-projects").value?$("saved-projects").selectedOptions[0].textContent:$("project-name").value||"Current import";
+  if(!window.confirm("Permanently delete "+name+" and all its media and exports?"))return;
+  action(async()=>{
+    await request("/api/projects/delete",{id});
+    if(job?.id===id){
+      if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;$("video").removeAttribute("src");$("video").load();
+      job=null;clearDirector();clearClipper();resetMusic();clips=[];selected.clear();edits={};cues=[];visuals.clear();history=[];future=[];current=-1;activeCue=-1;refreshCaption();hideExports();
+      $("placeholder").hidden=false;$("project").textContent="Untitled sequence";$("project-name").value="";$("format").textContent="NO MEDIA";
+    }
+    await refreshProjects();log("Project deleted");
+  });
+});
+
+$("cancel-render").addEventListener("click",async()=>{if(!activeRender)return;try{const state=await request("/api/render/cancel",{render_id:activeRender});$("render-status").textContent=state.status;log("Render cancellation requested");}catch(e){log(e.message,true);}});

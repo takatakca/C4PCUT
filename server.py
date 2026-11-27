@@ -12,6 +12,9 @@ import captions
 import music
 import director
 import clipper
+import projects
+from render_queue import RenderQueue, Cancelled
+from contextlib import nullcontext
 import re
 import os
 import sys
@@ -19,8 +22,11 @@ import sys
 ROOT = Path(__file__).resolve().parent / "web"
 LOCK = threading.Lock()
 JOBS = {}
+RENDERS = RenderQueue()
 TOKEN = secrets.token_urlsafe(32)
 HOST = "127.0.0.1:8765"
+# Docker publishes only on host loopback. Never enable a public proxy for this prototype.
+BIND = "0.0.0.0" if os.environ.get("C4PCUT_CONTAINER") == "1" else "127.0.0.1"
 
 class Handler(BaseHTTPRequestHandler):
     def reply(self, obj, status=200):
@@ -53,6 +59,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self.valid_host():
             return self.reply({"error": "Invalid host"}, 403)
         path = urlsplit(self.path).path
+        if path == "/healthz":
+            return self.reply({"status": "ok", "mode": "private-local"})
         if path == "/api/session":
             return self.reply({"token": TOKEN})
         static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
@@ -60,6 +68,8 @@ class Handler(BaseHTTPRequestHandler):
             name, mime = static[path]
             return self.file(ROOT / name, mime)
         parts = path.split("/")
+        if len(parts) == 4 and parts[1:3] == ["api", "source"] and parts[3] in JOBS:
+            return self.file(JOBS[parts[3]]["folder"] / "source.media", "application/octet-stream")
         if len(parts) == 4 and parts[1:3] == ["api", "export"] and parts[3] in JOBS:
             return self.file(JOBS[parts[3]]["folder"] / "export.mp4", "video/mp4", True)
         if len(parts) == 4 and parts[1:3] == ["api", "captions"] and parts[3] in JOBS:
@@ -78,14 +88,30 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.valid_host() or self.headers.get("X-C4PCUT-Token") != TOKEN:
             return self.reply({"error": "Forbidden"}, 403)
+        path = urlsplit(self.path).path
+        if path in {"/api/render/status","/api/render/cancel"}:
+            try:
+                self.connection.settimeout(10)
+                size=int(self.headers.get("Content-Length","0"))
+                if not 0<size<=1024:
+                    raise ValueError("Invalid request")
+                ident=json.loads(self.rfile.read(size))["render_id"]
+                if not isinstance(ident,str) or not projects.ID.fullmatch(ident):
+                    raise ValueError("Invalid render ID")
+                if path.endswith("/cancel"):
+                    RENDERS.cancel(ident)
+                return self.reply(RENDERS.status(ident))
+            except (ValueError,KeyError,TypeError):
+                return self.reply({"error":"Unknown render"},400)
         if not LOCK.acquire(blocking=False):
             return self.reply({"error": "Another media operation is running"}, 409)
         try:
-            path = urlsplit(self.path).path
+            if RENDERS.busy() and path != "/api/render":
+                return self.reply({"error":"Render queue active; cancel or wait for completion"},409)
             size = int(self.headers.get("Content-Length", "0"))
             self.connection.settimeout(60)
             if path == "/api/import":
-                if not 0 < size <= engine.MAX_BYTES or len(JOBS) >= 8:
+                if not 0 < size <= engine.MAX_BYTES or sum(1 for p in Path(self.server.storage).iterdir() if projects.ID.fullmatch(p.name) and p.is_dir()) >= projects.MAX_PROJECTS:
                     raise ValueError("Maximum 250 MB per video and 8 imports per session")
                 job_id = secrets.token_hex(16)
                 folder = Path(self.server.storage) / job_id
@@ -136,8 +162,29 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < size <= 262144:
                 raise ValueError("Invalid request size")
             payload = json.loads(self.rfile.read(size))
+            if path == "/api/projects/list":
+                return self.reply({"projects":projects.list_saved(Path(self.server.storage)), "persistent":self.server.persistent})
             job_id = payload["id"]
+            if not isinstance(job_id,str) or not projects.ID.fullmatch(job_id):
+                raise ValueError("Invalid project ID")
+            if path == "/api/projects/open":
+                folder=Path(self.server.storage)/job_id
+                if not folder.is_dir() or folder.is_symlink():
+                    raise ValueError("Project not found")
+                job,state=projects.restore(folder)
+                JOBS[job_id]=job
+                return self.reply({"id":job_id,**job["metadata"],"clips":job["clips"],"state":state,"music":job.get("music_analysis"),"source_url":"/api/source/"+job_id})
+            if path == "/api/projects/delete":
+                folder=Path(self.server.storage)/job_id
+                if not folder.is_dir() or folder.is_symlink():
+                    raise ValueError("Project not found")
+                shutil.rmtree(folder)
+                JOBS.pop(job_id,None)
+                return self.reply({"deleted":True})
             job = JOBS[job_id]
+            if path == "/api/projects/save":
+                state=projects.save(job,payload)
+                return self.reply({"saved":True,"name":state["name"]})
             source = job["folder"] / "source.media"
             if path == "/api/analyze":
                 job["clips"] = engine.analyze(source, job["metadata"])
@@ -233,7 +280,7 @@ class Handler(BaseHTTPRequestHandler):
                     if mapped:
                         subtitle.write_text(captions.to_srt(mapped),encoding="utf-8")
                     burn = captions.to_ass(mapped,caption_mode) if mapped and caption_mode != "soft" else None
-                    engine.render(source,temp,selected,job["metadata"]["audio"],subtitle if mapped and caption_mode=="soft" else None,music_path,music_gain,source_gain,burn_ass=burn)
+                    engine.render(source,temp,selected,job["metadata"]["audio"],subtitle if mapped and caption_mode=="soft" else None,music_path,music_gain,source_gain,burn_ass=burn, preset=payload.get('preset','original'), framing=payload.get('framing','fit'), quality=payload.get('quality','standard'))
                     temp.replace(folder / f"{index}.mp4")
                 finally:
                     temp.unlink(missing_ok=True)
@@ -252,23 +299,34 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Import music first")
                 music_gain = music.validate_gain(payload.get("music_gain", .35))
                 source_gain = music.validate_gain(payload.get("source_gain", 1))
-                temp = job["folder"] / "rendering.mp4"
-                subtitle = job["folder"] / "rendering.srt"
-                exported_srt = job["folder"] / "export.srt"
-                try:
-                    if mapped:
-                        subtitle.write_text(captions.to_srt(mapped), encoding="utf-8")
-                    burn = captions.to_ass(mapped, caption_mode) if mapped and caption_mode != "soft" else None
-                    engine.render(source, temp, selected, job["metadata"]["audio"], subtitle if mapped and caption_mode == "soft" else None, music_path, music_gain, source_gain, burn_ass=burn)
-                    temp.replace(job["folder"] / "export.mp4")
-                    if mapped:
-                        subtitle.replace(exported_srt)
-                    else:
-                        exported_srt.unlink(missing_ok=True)
-                finally:
-                    temp.unlink(missing_ok=True)
-                    subtitle.unlink(missing_ok=True)
-                return self.reply({"url": "/api/export/" + job_id, "captions_url": "/api/captions/" + job_id if mapped else None})
+                preset,framing,quality=payload.get("preset","original"),payload.get("framing","fit"),payload.get("quality","standard")
+                engine.validate_render_budget(preset,framing,sum(c["end"]-c["start"] for c in selected),quality)
+                folder=job["folder"]
+                audio=job["metadata"]["audio"]
+                def work(cancel,progress):
+                    temp=folder/"rendering.mp4"
+                    subtitle=folder/"rendering.srt"
+                    exported_srt=folder/"export.srt"
+                    try:
+                        if mapped:
+                            subtitle.write_text(captions.to_srt(mapped),encoding="utf-8")
+                        burn=captions.to_ass(mapped,caption_mode) if mapped and caption_mode!="soft" else None
+                        engine.render(source,temp,selected,audio,subtitle if mapped and caption_mode=="soft" else None,
+                                      music_path,music_gain,source_gain,burn_ass=burn,preset=preset,framing=framing,
+                                      quality=quality,cancel=cancel,progress=progress)
+                        if cancel.is_set():
+                            raise Cancelled()
+                        temp.replace(folder/"export.mp4")
+                        if mapped:
+                            subtitle.replace(exported_srt)
+                        else:
+                            exported_srt.unlink(missing_ok=True)
+                        return {"url":"/api/export/"+job_id,"captions_url":"/api/captions/"+job_id if mapped else None}
+                    finally:
+                        temp.unlink(missing_ok=True)
+                        subtitle.unlink(missing_ok=True)
+                ident=RENDERS.submit(job_id,work)
+                return self.reply({"render_id":ident},202)
             return self.reply({"error": "Not found"}, 404)
         except (ValueError, KeyError, TypeError):
             return self.reply({"error": "Invalid input or unsupported media"}, 400)
@@ -281,11 +339,19 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
         raise SystemExit("Install FFmpeg and ffprobe first")
-    with tempfile.TemporaryDirectory(prefix="c4pcut-") as storage:
-        with ThreadingHTTPServer(("127.0.0.1", 8765), Handler) as server:
+    root=os.environ.get("C4PCUT_DATA_DIR")
+    if root:
+        root=Path(root).resolve()
+        root.mkdir(mode=0o700,parents=True,exist_ok=True)
+    context=nullcontext(root) if root else tempfile.TemporaryDirectory(prefix="c4pcut-")
+    with context as storage:
+        with ThreadingHTTPServer((BIND, 8765), Handler) as server:
             server.storage = storage
+            server.persistent = bool(root)
             print("C4PCUT: http://" + HOST, flush=True)
             try:
                 server.serve_forever()
             except KeyboardInterrupt:
                 pass
+            finally:
+                RENDERS.shutdown()

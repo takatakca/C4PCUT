@@ -45,3 +45,22 @@
 - AI Director CI 45922109564 completed successfully (mocked local AI contract; real Ollama inference still unverified).
 - Added deterministic 15/30/60-second candidate ranking, overlap rejection, up to ten suggestions, source preview, individual and sequential batch MP4 exports, current caption/music settings and separate batch storage.
 - Added ranking, validation and real render tests. New CI pending. No semantic video analysis, virality prediction or automatic publishing.
+
+## Social exports and private Docker release candidate
+- Clipper CI 45922285900 passed; PR #2 merged to main at 30252662ab7228f2e4dafbb0e4db9ebaef816e2f.
+- Added allowlisted 720p/1080p aspect presets, fit and center crop, original mode, main and batch export integration, geometry tests.
+- Added non-root private Docker image, loopback Compose binding, resource limits, health endpoint, container CI smoke test and VPS instructions. No live server deployment performed. CI pending.
+
+## Saved projects milestone
+- Social format/container CI 45922432058 was in progress when this increment began.
+- Added validated versioned JSON project saves, source reopen, soundtrack snapshot isolation, explicit deletion, saved-project picker and optional persistent Docker volume. Default remains ephemeral. Added round-trip and validation tests; new CI pending.
+- No durable render queue, multi-user ownership, storage-volume quota or autosave. Unsaved orphan folders need owner cleanup; browser preview uses a source blob, not ranged streaming.
+
+- Social export and private Docker CI 45922432058 passed. Added saved-project HTTP round-trip test, explicit delete-only orphan entries, named deletion confirmation, and source MIME preservation independent of project name. Latest CI pending.
+
+## Advanced rendering milestone
+- Saved-project CI was in progress at start; previous social/container CI passed.
+- Added single-worker bounded in-memory export queue, actual FFmpeg timestamp progress, cancellation and temporary-file cleanup, main UI polling, quality presets, QHD/4K geometry and duration limits, persisted quality selection.
+- Added queue ordering/cancel, render execution and preset validation tests. New CI pending. Clipper still renders synchronously, queue not durable, no rendered preview or 4K benchmark yet.
+
+- Saved-project CI 45922606787 passed. Added real HTTP submission/poll/download integration coverage, controlled cancellation test protecting previous export, and portable progress-file reading. Latest CI pending.

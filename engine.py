@@ -4,6 +4,8 @@ import math
 import re
 import subprocess
 import tempfile
+import time
+from render_queue import Cancelled
 from pathlib import Path
 
 MAX_DURATION = 600
@@ -12,6 +14,48 @@ MAX_BYTES = 250 * 1024 * 1024
 
 def run(args, timeout=180, cwd=None):
     return subprocess.run(args, check=True, capture_output=True, text=True, timeout=timeout, cwd=cwd)
+
+def run_render(args, duration, cancel, progress, cwd=None, timeout=300):
+    """Poll FFmpeg machine-readable timestamps, with cancellation and a hard deadline."""
+    if cancel is None:
+        return run(args, timeout, cwd=cwd)
+    if cancel.is_set():
+        raise Cancelled()
+    args=args[:1]+["-progress","pipe:1","-nostats"]+args[1:]
+    with tempfile.TemporaryDirectory(prefix="c4pcut-progress-") as folder, tempfile.TemporaryFile() as errors:
+        path=Path(folder)/"progress.log"
+        with path.open("wb") as events, path.open("rb") as reader, subprocess.Popen(args,stdout=events,stderr=errors,cwd=cwd) as process:
+            started=time.monotonic()
+            fragment=b""
+            try:
+                while process.poll() is None:
+                    if cancel.wait(.2):
+                        raise Cancelled()
+                    if time.monotonic()-started>timeout:
+                        raise subprocess.TimeoutExpired(args,timeout)
+                    # Separate file handles preserve independent read/write offsets.
+                    data=reader.read(65536)
+                    lines=(fragment+data).split(b"\n")
+                    fragment=lines.pop()
+                    for line in lines:
+                        if line.startswith(b"out_time_us="):
+                            try:
+                                progress(int(line.split(b"=",1)[1])/1e6/max(.001,duration)*100)
+                            except ValueError:
+                                pass
+                if cancel.is_set():
+                    raise Cancelled()
+                if process.returncode:
+                    errors.seek(0)
+                    raise subprocess.CalledProcessError(process.returncode,args,stderr=errors.read(8192))
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
 
 def probe(path):
     info = json.loads(run(["ffprobe", "-v", "error", "-show_format", "-show_streams", "-of", "json", str(path)], 30).stdout)
@@ -88,7 +132,37 @@ def validate_edits(ids, clips, edits):
         validated[key] = {**base, "start": a, "end": b, "effect": effect}
     return [validated.get(str(c["id"]), c) for c in selected]
 
-def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None):
+EXPORT_FORMATS = {"original": None, "vertical": (720,1280), "square": (720,720), "landscape": (1280,720),
+                  "vertical_hd": (1080,1920), "square_hd": (1080,1080), "landscape_hd": (1920,1080),
+                  "landscape_qhd": (2560,1440), "vertical_qhd": (1440,2560),
+                  "landscape_4k": (3840,2160), "vertical_4k": (2160,3840)}
+
+def validate_format(preset, framing):
+    if not isinstance(preset,str) or preset not in EXPORT_FORMATS:
+        raise ValueError("Unknown export format")
+    if not isinstance(framing,str) or framing not in {"fit","crop"}:
+        raise ValueError("Unknown framing")
+    return EXPORT_FORMATS[preset]
+
+QUALITIES = {"compact": 28, "standard": 22, "high": 18}
+
+def validate_quality(quality):
+    if not isinstance(quality,str) or quality not in QUALITIES:
+        raise ValueError("Unknown render quality")
+    return QUALITIES[quality]
+
+def validate_render_budget(preset, framing, duration, quality):
+    dims=validate_format(preset,framing)
+    validate_quality(quality)
+    if dims and max(dims)>=3840 and duration>60:
+        raise ValueError("4K export limited to 60 seconds")
+    if dims and max(dims)>=2560 and duration>120:
+        raise ValueError("QHD export limited to 120 seconds")
+
+def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None, preset="original", framing="fit", quality="standard", cancel=None, progress=None):
+    total=sum(c["end"]-c["start"] for c in clips)
+    validate_render_budget(preset,framing,total,quality)
+    progress=progress or (lambda value: None)
     # Normalize timestamps and concatenate independently trimmed video/audio streams.
     filters, inputs = [], []
     if burn_ass is not None and subtitle_path is not None:
@@ -97,13 +171,20 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
     has_audio = audio or music_path is not None
     # A zoom operation needs a fixed output geometry and frame rate. Normalize
     # every scene in that sequence to keep concat inputs compatible.
-    dimensions = None
-    if any(c.get("effect") == "zoom" for c in clips):
+    dimensions = validate_format(preset,framing)
+    if dimensions is None and any(c.get("effect") == "zoom" for c in clips):
         info = probe(source)
         dimensions = (max(2,info["width"]//2*2),max(2,info["height"]//2*2))
     for i, c in enumerate(clips):
         a, b = c["start"], c["end"]
-        geometry = f"scale={dimensions[0]}:{dimensions[1]},fps=30" if dimensions else "scale=trunc(iw/2)*2:trunc(ih/2)*2"
+        if preset != "original":
+            w,h = dimensions
+            if framing == "fit":
+                geometry = f"scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,fps=30"
+            else:
+                geometry = f"scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,crop={w}:{h},fps=30"
+        else:
+            geometry = f"scale={dimensions[0]}:{dimensions[1]},fps=30" if dimensions else "scale=trunc(iw/2)*2:trunc(ih/2)*2"
         effect = effect_filter(c.get("effect","none"), b-a, dimensions)
         filters.append(f"[0:v:0]trim=start={a}:end={b},setpts=PTS-STARTPTS,{geometry},setsar=1{effect}[v{i}]")
         inputs.append(f"[v{i}]")
@@ -136,14 +217,14 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
         args += ["-map", "[a]", "-c:a", "aac", "-b:a", "160k"]
     if subtitle_path is not None:
         args += ["-map", "1:0", "-c:s", "mov_text", "-disposition:s:0", "default"]
-    args += ["-c:v", "libx264", "-threads", "2", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(Path(output).resolve())]
+    args += ["-c:v", "libx264", "-threads", "2", "-preset", "veryfast", "-crf", str(validate_quality(quality)), "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(Path(output).resolve())]
     if burn_ass is not None:
         # Constant filter filename, private working directory, no path interpolation.
         with tempfile.TemporaryDirectory(prefix="c4pcut-ass-") as working:
             (Path(working)/"captions.ass").write_text(burn_ass, encoding="utf-8")
-            run(args, 300, cwd=working)
+            run_render(args,total,cancel,progress,cwd=working,timeout=600 if preset.endswith(("4k","qhd")) else 300)
     else:
-        run(args, 300)
+        run_render(args,total,cancel,progress,timeout=600 if preset.endswith(("4k","qhd")) else 300)
     return Path(output)
 
 def build_visuals(source, folder, clips, metadata):
