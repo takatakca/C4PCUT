@@ -11,3 +11,7 @@
 4. Validated structured AI edit plans and optional local Ollama.
 5. Authenticated TAKATAK Studio integration, persistent projects, isolated queue/render workers, resource quotas.
 6. Deployment readiness, security and load tests, then approved production rollout.
+
+## Timeline enhancement
+- Implemented actual scene midpoint thumbnails and per-segment source audio peak envelopes, source-time playhead and selection undo/redo.
+- Not yet verified by CI for this increment. True independent multitrack editing, trim handles and persistent history remain planned.

@@ -55,6 +55,10 @@ class Handler(BaseHTTPRequestHandler):
         parts = path.split("/")
         if len(parts) == 4 and parts[1:3] == ["api", "export"] and parts[3] in JOBS:
             return self.file(JOBS[parts[3]]["folder"] / "export.mp4", "video/mp4", True)
+        if len(parts) == 5 and parts[1:3] == ["api", "thumbnail"] and parts[3] in JOBS:
+            name = parts[4]
+            if name.endswith(".jpg") and name[:-4].isascii() and name[:-4].isdigit() and len(name) <= 6:
+                return self.file(JOBS[parts[3]]["folder"] / "visuals" / name, "image/jpeg")
         return self.reply({"error": "Not found"}, 404)
 
     def do_POST(self):
@@ -97,6 +101,11 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/analyze":
                 job["clips"] = engine.analyze(source, job["metadata"])
                 return self.reply({"clips": job["clips"]})
+            if path == "/api/visuals":
+                visuals = engine.build_visuals(source, job["folder"] / "visuals", job["clips"], job["metadata"])
+                for item in visuals:
+                    item["thumbnail"] = f"/api/thumbnail/{job_id}/{item['id']}.jpg"
+                return self.reply({"visuals": visuals})
             if path == "/api/render":
                 selected = engine.validate_selection(payload["clips"], job["clips"])
                 temp = job["folder"] / "rendering.mp4"

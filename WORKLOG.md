@@ -4,3 +4,8 @@
 - Python HTTP API and FFmpeg scene detection / selected-clip export.
 - Unit and synthetic-media integration test definitions added.
 - No production deployment or external AI enabled. CI/test execution not yet verified at authoring time.
+
+## Timeline milestone
+- Foundation CI run 45920730879 completed successfully before these changes.
+- Added FFmpeg scene thumbnails, decoded audio peak envelopes, synchronized source-time playhead, ruler seeking and selection undo/redo.
+- Added synthetic tone/thumbnail integration test. New commit verification pending.

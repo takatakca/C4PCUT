@@ -63,3 +63,41 @@ def render(source, output, clips, audio):
     args += ["-c:v", "libx264", "-threads", "2", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(output)]
     run(args, 300)
     return Path(output)
+
+def build_visuals(source, folder, clips, metadata):
+    """Extract genuine mid-scene stills and per-scene audio peak envelopes."""
+    import array
+    import sys
+    folder = Path(folder)
+    folder.mkdir(exist_ok=True)
+    samples = array.array("h")
+    rate = 8000
+    if metadata["audio"]:
+        pcm = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-threads", "2",
+                              "-i", str(source), "-map", "0:a:0", "-vn", "-ac", "1",
+                              "-ar", str(rate), "-t", str(MAX_DURATION), "-f", "s16le", "-"],
+                             check=True, capture_output=True, timeout=90).stdout
+        samples.frombytes(pcm)
+        if sys.byteorder != "little":
+            samples.byteswap()
+    output = []
+    for c in clips:
+        i = c["id"]
+        thumb = folder / f"{i}.jpg"
+        at = (c["start"] + c["end"]) / 2
+        run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-ss", str(at), "-threads", "2",
+             "-i", str(source), "-map", "0:v:0", "-frames:v", "1", "-vf",
+             "scale=160:-2", "-threads", "1", "-q:v", "4", str(thumb)], 12)
+        if not thumb.is_file():
+            raise ValueError("Cannot extract scene thumbnail")
+        peaks = []
+        if metadata["audio"]:
+            start, end = round(c["start"] * rate), round(c["end"] * rate)
+            bins = min(96, max(8, math.ceil((c["end"] - c["start"]) * 12)))
+            for j in range(bins):
+                a = start + (end - start) * j // bins
+                b = start + (end - start) * (j + 1) // bins
+                window = samples[a:min(b, len(samples))]
+                peaks.append(round(max((abs(v) for v in window), default=0) / 32768, 3))
+        output.append({"id": i, "peaks": peaks})
+    return output

@@ -24,5 +24,19 @@ class EngineTests(unittest.TestCase):
             engine.render(src, out, clips[1:], False)
             self.assertAlmostEqual(engine.probe(out)["duration"], 2, delta=.2)
 
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg required")
+    def test_visuals_with_real_audio(self):
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d)/"input.mp4"
+            engine.run(["ffmpeg","-nostdin","-y","-f","lavfi","-i","color=red:s=160x120:r=25:d=2","-f","lavfi","-i","sine=frequency=440:sample_rate=8000:duration=2","-c:v","libx264","-c:a","aac","-shortest",str(src)])
+            info = engine.probe(src)
+            clips = engine.segments(info["duration"], [1])
+            data = engine.build_visuals(src, Path(d)/"visuals", clips, info)
+            self.assertEqual(len(data), 2)
+            for item in data:
+                self.assertGreater(max(item["peaks"]), 0)
+                self.assertTrue(all(0 <= p <= 1 for p in item["peaks"]))
+                self.assertTrue((Path(d)/"visuals"/f"{item['id']}.jpg").read_bytes().startswith(b"\xff\xd8"))
+
 if __name__ == "__main__":
     unittest.main()
