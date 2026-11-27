@@ -16,6 +16,10 @@ import projects
 import owner_auth
 import usage
 import workspaces
+import studio_pack
+import studio_gateway
+import hashlib
+import time
 from render_queue import RenderQueue, Cancelled
 from contextlib import nullcontext
 import re
@@ -24,6 +28,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent / "web"
 LOCK = threading.Lock()
+GATEWAY_UPLOADS = threading.BoundedSemaphore(1)
 JOBS = {}
 RENDERS = RenderQueue()
 TOKEN = secrets.token_urlsafe(32)
@@ -43,7 +48,13 @@ class Handler(BaseHTTPRequestHandler):
     def owner_allowed(self):
         registry=getattr(self.server,"workspaces",None)
         if registry is not None:
-            workspace=workspaces.authenticate(self.headers.get("Authorization"),registry)
+            gateway=getattr(self.server,"studio_gateway",None)
+            if gateway is not None:
+                principal=gateway.verify(self.headers.get("X-C4PCUT-Gateway"),self.command,self.path)
+                workspace=registry.get(principal.workspace) if principal is not None else None
+                self.gateway_principal=principal
+            else:
+                workspace=workspaces.authenticate(self.headers.get("Authorization"),registry)
             if workspace is not None:
                 self.scope=workspace.slug
                 self.jobs=workspace.jobs
@@ -60,7 +71,8 @@ class Handler(BaseHTTPRequestHandler):
             return True
         data=b'{"error":"Private editor authentication required"}'
         self.send_response(401)
-        self.send_header("WWW-Authenticate",'Basic realm="C4PCUT private editor", charset="UTF-8"')
+        if getattr(self.server,"studio_gateway",None) is None:
+            self.send_header("WWW-Authenticate",'Basic realm="C4PCUT private editor", charset="UTF-8"')
         self.send_header("Content-Type","application/json")
         self.send_header("Content-Length",str(len(data)))
         self.send_header("Cache-Control","no-store")
@@ -104,6 +116,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply({"status": "ok", "mode": "private-local"})
         if not self.owner_allowed():
             return
+        if getattr(self,"gateway_principal",None) is not None and (self.headers.get("Transfer-Encoding") is not None or self.headers.get_all("Content-Length",[]) not in ([],["0"])):
+            return self.reply({"error":"Unexpected GET body"},400)
         if path == "/api/usage":
             return self.reply(self.ledger.summary() if self.ledger else {"enabled":False})
         if path == "/api/session":
@@ -138,6 +152,54 @@ class Handler(BaseHTTPRequestHandler):
         if not owner_auth.allowed_origin(self.headers.get("Origin"),self.headers.get("Host"),self.headers.get("Sec-Fetch-Site")) or not secrets.compare_digest(self.headers.get("X-C4PCUT-Token","").encode("utf-8"),self.csrf_token.encode("utf-8")):
             return self.reply({"error": "Forbidden"}, 403)
         path = urlsplit(self.path).path
+        if getattr(self,"gateway_principal",None) is not None:
+            # Authenticate before receiving a body. Stage bytes, verify digest,
+            # then replay only the verified bytes through existing handlers.
+            limit=engine.MAX_BYTES if path=="/api/import" else music.MAX_MUSIC_BYTES if path.startswith("/api/music/import/") else 262144
+            if path in {"/api/render/status","/api/render/cancel"}:
+                limit=1024
+            if self.headers.get("Transfer-Encoding") is not None:
+                return self.reply({"error":"Chunked requests unsupported"},400)
+            lengths=self.headers.get_all("Content-Length",[])
+            if len(lengths)!=1 or not re.fullmatch(r"[0-9]{1,10}",lengths[0]):
+                return self.reply({"error":"Invalid content length"},400)
+            size=int(lengths[0])
+            if not 0<size<=limit:
+                return self.reply({"error":"Invalid request size"},400)
+            # Limit concurrent gateway body staging independent of render queue.
+            if not GATEWAY_UPLOADS.acquire(blocking=False):
+                return self.reply({"error":"Gateway upload busy"},409)
+            try:
+                self.connection.settimeout(10)
+                deadline=time.monotonic()+60
+                with tempfile.TemporaryFile() as verified:
+                    digest=hashlib.sha256()
+                    remaining=size
+                    while remaining:
+                        if time.monotonic()>deadline:
+                            return self.reply({"error":"Upload deadline exceeded"},408)
+                        chunk=self.rfile.read1(min(remaining,1024*1024))
+                        if not chunk:
+                            return self.reply({"error":"Incomplete body"},400)
+                        remaining-=len(chunk)
+                        digest.update(chunk)
+                        verified.write(chunk)
+                    if not secrets.compare_digest(digest.hexdigest(),self.gateway_principal.body_sha256):
+                        return self.reply({"error":"Request body signature mismatch"},403)
+                    verified.seek(0)
+                    original=self.rfile
+                    self.rfile=verified
+                    try:
+                        return self.dispatch_post(path)
+                    finally:
+                        self.rfile=original
+            except (OSError,TimeoutError):
+                return self.reply({"error":"Gateway body read failed"},400)
+            finally:
+                GATEWAY_UPLOADS.release()
+        return self.dispatch_post(path)
+
+    def dispatch_post(self,path):
         if path in {"/api/render/status","/api/render/cancel"}:
             try:
                 self.connection.settimeout(10)
@@ -211,6 +273,11 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < size <= 262144:
                 raise ValueError("Invalid request size")
             payload = json.loads(self.rfile.read(size))
+            if path == "/api/studio/import-pack":
+                if size>studio_pack.MAX_PACK_BYTES:
+                    raise ValueError("Studio pack too large")
+                brief=studio_pack.parse_pack(payload)
+                return self.reply({"brief":brief,"director_prompt":studio_pack.director_prompt(brief)})
             if path == "/api/projects/list":
                 return self.reply({"projects":projects.list_saved(Path(self.storage)), "persistent":self.server.persistent})
             job_id = payload["id"]
@@ -222,7 +289,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Project not found")
                 job,state=projects.restore(folder)
                 self.jobs[job_id]=job
-                return self.reply({"id":job_id,**job["metadata"],"clips":job["clips"],"state":state,"music":job.get("music_analysis"),"source_url":"/api/source/"+job_id})
+                return self.reply({"id":job_id,**job["metadata"],"clips":job["clips"],"state":state,"director_prompt":studio_pack.director_prompt(state["studio_brief"]) if state["studio_brief"] else "","music":job.get("music_analysis"),"source_url":"/api/source/"+job_id})
             if path == "/api/projects/delete":
                 folder=Path(self.storage)/job_id
                 if not folder.is_dir() or folder.is_symlink():
@@ -415,6 +482,10 @@ if __name__ == "__main__":
         raise SystemExit(str(exc)) from exc
     del password
     config=os.environ.get("C4PCUT_WORKSPACES_FILE")
+    gateway_config=os.environ.get("C4PCUT_GATEWAY_MAPPING_FILE")
+    gateway_key=os.environ.get("C4PCUT_GATEWAY_KEY_FILE")
+    if (gateway_config or gateway_key) and not (gateway_config and gateway_key and config):
+        raise SystemExit("Gateway mode requires mapping, key file and workspace mode")
     if config and digest is not None:
         raise SystemExit("Workspace mode and owner password mode are mutually exclusive")
     root=os.environ.get("C4PCUT_DATA_DIR")
@@ -434,6 +505,7 @@ if __name__ == "__main__":
                 if config and limit is not None:
                     raise ValueError("Set quotas in workspace configuration, not global environment")
                 server.workspaces=workspaces.load(config,storage) if config else None
+                server.studio_gateway=studio_gateway.load(gateway_config,gateway_key,server.workspaces,storage) if gateway_config else None
                 server.ledger=None if config else usage.Ledger(storage,limit)
             except ValueError as exc:
                 raise SystemExit(str(exc)) from exc

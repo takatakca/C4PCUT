@@ -80,3 +80,17 @@
 - Usage CI 45930401547 passed; PR #5 merged at eefbb5f108b9fbbc0f34b822a805b0cf2019c22f.
 - Added optional explicit workspace configuration, server-selected project/media namespace, per-workspace CSRF and SQLite usage, scoped render status/cancel and private Compose overlay. Added HTTP regression tests for cross-workspace access and configuration traversal. New CI pending.
 - Default owner mode unchanged; no changes to takatak-v1, real Studio SSO, billing or public deployment. Shared process/volume remains a limitation.
+
+## Studio creative pack interoperability
+- Workspace CI 45933244482 passed; PR #6 merged at 5a4939941baae22824ddeb37a62d3f901adb2538.
+- Read V1 main 09c6f21f42d0ee39385ec5e11c389fba6a191205 workspace permission gate and actual Studio production_request_pack v1 contract. Added local creative-only pack parsing, authenticated import endpoint, explicit attachment, saved manifest field and regression tests. No V1 writes or SSO claims. Latest CI pending.
+
+- Added pack HTTP import/save/open regression to workspace isolation test, restored canonical Director prompt on reopen, and matched upstream empty character-profile semantics. Latest CI pending.
+
+## Studio gateway verification precursor
+- PR #7 pack CI 45933475479 still running at start. Kept work on same branch; no unverified merge.
+- Added opt-in receiver verifier with signed client/profile/permission/entitlement claims, one-to-one trusted workspace map, exact request method/target, 30-second TTL, bounded replay cache, no Basic fallback in gateway mode and HTTP isolation tests. No live issuer, body signature, restart-durable replay or public exposure. Latest CI pending.
+
+## Gateway protocol v2 hardening
+- Prior gateway CI 45933600623 in progress at start. No unverified merge.
+- Added mandatory signed body SHA-256, exact authenticated body staging before mutation, strict length/transfer checks, bounded staging slot, persistent transactional replay store and cross-instance/restart replay tests. Updated protocol audience to v2, no compatibility fallback. New CI pending; issuer and secure transport still absent.
