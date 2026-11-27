@@ -130,3 +130,8 @@
 - PR #21 passed CI and merged. Fixed banner styles and lower-third position implemented with saved-project compatibility and real render tests. New CI pending. Uploaded image and video overlays, live TAKATAK integration, billing and isolated production deployment remain outstanding.
 
 - Graphic titles CI: Chromium passed; one FFmpeg frame-extraction test failed. Corrected seek timestamp; latest CI pending.
+
+## PNG watermark
+- Single bounded PNG logo, corner selection, normalized private asset, project persistence and MP4 composition implemented on stacked branch. New CI pending; parent graphic-title CI must pass first. General multi-layer image/video editing, production isolation and live integration remain open.
+
+- Graphic titles merged after green CI; PNG watermark initial CI green. Retargeted PR #23 reconciled with main and enhanced timed watermark/size/opacity. Latest combined CI pending. General image/video tracks, actual commercial integration and production deployment remain outstanding.

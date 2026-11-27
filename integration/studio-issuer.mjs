@@ -5,17 +5,19 @@ import {activeGrant} from "./plan-policy.mjs";
 const UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 const KEY=/^[a-f0-9]{64}$/;
 const ID="[a-f0-9]{32}";
-const GET=new RegExp("^(?:/api/(?:session|usage)|/api/(?:source|export|captions|soundtrack)/"+ID+"|/api/thumbnail/"+ID+"/[0-9]{1,2}\\.jpg|/api/clipper/"+ID+"/[a-f0-9]{24}/[0-9]\\.mp4)$");
+const GET=new RegExp("^(?:/api/(?:session|usage)|/api/(?:source|export|captions|soundtrack|logo)/"+ID+"|/api/thumbnail/"+ID+"/[0-9]{1,2}\\.jpg|/api/clipper/"+ID+"/[a-f0-9]{24}/[0-9]\\.mp4)$");
 const POST=new Set(["/api/projects/list","/api/projects/open","/api/projects/save","/api/projects/delete","/api/analyze","/api/visuals","/api/captions/import","/api/transcribe","/api/music/analyze","/api/music/cuts","/api/director","/api/clipper/suggest","/api/clipper/render","/api/render","/api/render/status","/api/render/cancel","/api/studio/import-pack","/api/import"]);
+const LOGO=new RegExp("^/api/logo/import/"+ID+"$");
 const MUSIC=new RegExp("^/api/music/import/"+ID+"$");
 export class AccessDenied extends Error {}
 function deny(){throw new AccessDenied("C4PCUT access denied");}
 function routeLimit(method,target){
   if(typeof target!=="string")deny();
   if(method==="GET"&&GET.test(target))return 0;
-  if(method==="POST"&&(POST.has(target)||MUSIC.test(target))){
+  if(method==="POST"&&(POST.has(target)||MUSIC.test(target)||LOGO.test(target))){
     if(target==="/api/import")return 250*1024*1024;
     if(MUSIC.test(target))return 64*1024*1024;
+    if(LOGO.test(target))return 2*1024*1024;
     if(target==="/api/render/status"||target==="/api/render/cancel")return 1024;
     if(target==="/api/studio/import-pack")return 16384;
     return 262144;

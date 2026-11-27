@@ -49,7 +49,33 @@ $("monitor-audio").addEventListener("loadedmetadata",()=>{if(sequence)syncMonito
 $("video").addEventListener("waiting",pauseMonitor);
 $("video").addEventListener("ratechange",()=>syncMonitor(true));
 $("video").addEventListener("volumechange",()=>{if(sequence)$("monitor-audio").muted=$("video").muted;});
-let sceneOrder=[],titleItems=[];
+let sceneOrder=[],titleItems=[],logoURL=null;
+function logoSettings(){
+  const num=id=>$(id).valueAsNumber;
+  return {enabled:!!logoURL&&$("use-logo").checked,position:$("logo-position").value,size:num("logo-size"),opacity:num("logo-opacity")/100,start:num("logo-in"),end:$("logo-out").value===""?null:num("logo-out")};
+}
+function updateLogo(time=Number($("sequence-position").value)||0){
+  const img=$("logo-overlay"),s=logoSettings();
+  img.hidden=!s.enabled||time<s.start||(s.end!==null&&time>=s.end);
+  img.className=s.position;img.style.maxWidth=s.size+"%";img.style.maxHeight=s.size+"%";img.style.opacity=String(s.opacity);
+  if(logoURL){if(img.getAttribute("src")!==logoURL)img.src=logoURL;}else img.removeAttribute("src");
+}
+async function resetLogo(url=null,settings=null){
+  if(logoURL)URL.revokeObjectURL(logoURL);logoURL=null;
+  $("use-logo").checked=!!url&&!!settings?.enabled;
+  $("logo-position").value=settings?.position||"top_right";$("logo-size").value=settings?.size??20;$("logo-opacity").value=(settings?.opacity??1)*100;
+  $("logo-in").value=settings?.start??0;$("logo-out").value=settings?.end??"";
+  updateLogo();
+  if(url){
+    const response=await fetch(url,{cache:"no-store"});
+    if(!response.ok)throw new Error("Logo preview unavailable");
+    const blob=await response.blob();
+    if(blob.size>5*1024*1024||blob.type!=="image/png")throw new Error("Invalid normalized logo");
+    logoURL=URL.createObjectURL(blob);updateLogo();
+  }
+}
+$("logo-file").addEventListener("change",()=>{const file=$("logo-file").files[0];if(!file)return;action(async()=>{if(file.size>2*1024*1024)throw new Error("Maximum logo size is 2 MiB");const result=await request("/api/logo/import/"+job.id,file,true);await resetLogo(result.logo_url,{enabled:true,position:$("logo-position").value});hideExports();updateButtons();log("PNG logo imported");});$("logo-file").value="";});
+for(const id of ["use-logo","logo-position","logo-size","logo-opacity","logo-in","logo-out"])$(id).addEventListener("change",()=>{updateLogo();hideExports();updateButtons();});
 function updateTitleOverlay(t){const overlay=$("title-overlay");const item=sequence?titleItems.find(x=>x.start<=t&&t<x.end):null;overlay.hidden=!item;overlay.replaceChildren();overlay.className=item?item.position+" "+(item.style||"classic"):"";if(item){const span=document.createElement("span");span.textContent=item.text;overlay.append(span);}}
 function drawTitleTrack(){
   const list=$("title-track");list.replaceChildren();
@@ -91,7 +117,7 @@ $("reset-order").addEventListener("click",()=>{if(busy)return;const order=select
 function sequencePlan(){return SequencePreview.build(clips,edits,selected,selectedOrder());}
 function showSequencePosition(value,total){
   const bar=$("sequence-position");bar.max=String(total);bar.value=String(Math.max(0,Math.min(total,value)));
-  $("sequence-clock").textContent=format(value)+" / "+format(total);updateTitleOverlay(value);
+  $("sequence-clock").textContent=format(value)+" / "+format(total);updateTitleOverlay(value);updateLogo(value);
 }
 function stopSequence(completed=false){
   const prior=sequence;sequence=null;sequenceSeek=null;
@@ -234,6 +260,7 @@ function updateButtons() {
   $("analyze").disabled = busy || !job;
   $("render").disabled = busy || !selected.size;
   $("add-title").disabled=busy||!job||!selected.size||titleItems.length>=12;
+  $("logo-file").disabled=busy||!job;$("use-logo").disabled=busy||!logoURL;$("logo-position").disabled=busy||!logoURL;for(const id of ["logo-size","logo-opacity","logo-in","logo-out"])$(id).disabled=busy||!logoURL;
   for(const id of ["title-text","title-in","title-out","title-position","title-style"])$(id).disabled=busy||!job||!selected.size;
   $("studio-pack").disabled=busy||!job;
   $("clear-studio-brief").disabled=busy||!studioBrief;
@@ -336,7 +363,7 @@ async function action(fn){
 $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)return;action(async()=>{
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
   step(0);log("Importing "+file.name);const result=await request("/api/import",file,true);
-  showSequencePosition(0,0);job=result;if(projectCount!==null)projectCount++;setStudioBrief(null);sourceMime=["video/mp4","video/quicktime","video/webm"].includes(file.type)?file.type:"";$("saved-projects").value="";clearDirector();clearClipper();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();sceneOrder=[];titleItems=[];visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
+  showSequencePosition(0,0);job=result;if(projectCount!==null)projectCount++;setStudioBrief(null);sourceMime=["video/mp4","video/quicktime","video/webm"].includes(file.type)?file.type:"";$("saved-projects").value="";clearDirector();clearClipper();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();sceneOrder=[];titleItems=[];resetLogo();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
   if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;$("project-name").value=file.name.slice(0,160);
   $("format").textContent=job.width+" × "+job.height;step(1,true);log("Media verified · "+format(job.duration));
 });$("file").value="";});
@@ -352,7 +379,7 @@ $("render").addEventListener("click",()=>action(async()=>{
   step(4);hideExports();log("Rendering "+selected.size+" selected scenes…");
   $("render-progress").value=0;$("render-status").textContent="Submitting";
   try{
-    const submitted=await request("/api/render",{id:job.id,clips:[...selected],order:selectedOrder(),titles:titleItems,edits,...clipperSettings()});
+    const submitted=await request("/api/render",{id:job.id,clips:[...selected],order:selectedOrder(),titles:titleItems,logo:logoSettings(),edits,...clipperSettings()});
     activeRender=submitted.render_id;updateButtons();
     while(true){
       const state=await request("/api/render/status",{render_id:activeRender});
@@ -488,7 +515,7 @@ async function refreshProjects(){
 }
 $("saved-projects").addEventListener("change",updateButtons);
 $("save-project").addEventListener("click",()=>action(async()=>{
-  const result=await request("/api/projects/save",{id:job.id,name:$("project-name").value,source_mime:sourceMime,studio_brief:studioBrief,selected:[...selected],order:selectedOrder(),titles:titleItems,edits,...clipperSettings()});
+  const result=await request("/api/projects/save",{id:job.id,name:$("project-name").value,source_mime:sourceMime,studio_brief:studioBrief,selected:[...selected],order:selectedOrder(),titles:titleItems,logo:logoSettings(),edits,...clipperSettings()});
   $("project").textContent=result.name;await refreshProjects();$("saved-projects").value=job.id;log("Saved project: "+result.name);
 }));
 $("open-project").addEventListener("click",()=>{
@@ -502,7 +529,7 @@ $("open-project").addEventListener("click",()=>{
     if(objectURL)URL.revokeObjectURL(objectURL);
     objectURL=URL.createObjectURL(new Blob([raw],{type:sourceMime}));
     showSequencePosition(0,0);job=result;clearDirector();clearClipper();resetMusic();clips=result.clips;visuals.clear();history=[];future=[];current=-1;activeCue=-1;
-    const s=result.state;setStudioBrief(s.studio_brief||null);$("director-prompt").value=(result.director_prompt||"").slice(0,1500);selected=new Set(s.selected);sceneOrder=s.order||[];titleItems=s.titles||[];edits=s.edits;cues=s.cues;musicData=result.music;musicName="Saved soundtrack";await loadMonitorMusic();
+    const s=result.state;setStudioBrief(s.studio_brief||null);$("director-prompt").value=(result.director_prompt||"").slice(0,1500);selected=new Set(s.selected);sceneOrder=s.order||[];titleItems=s.titles||[];await resetLogo(result.logo_url||null,s.logo);edits=s.edits;cues=s.cues;musicData=result.music;musicName="Saved soundtrack";await loadMonitorMusic();
     $("use-music").checked=s.use_music;$("music-gain").value=s.music_gain;$("source-gain").value=s.source_gain;$("caption-mode").value=s.caption_mode;$("export-preset").value=s.preset;$("export-framing").value=s.framing;$("export-quality").value=s.quality||"standard";
     $("project-name").value=s.name;$("project").textContent=s.name;$("video").src=objectURL;$("placeholder").hidden=true;$("format").textContent=job.width+" × "+job.height;
     refreshCaption();hideExports();drawTimeline();
@@ -518,7 +545,7 @@ $("delete-project").addEventListener("click",()=>{
     await request("/api/projects/delete",{id});
     if(job?.id===id){
       if(objectURL)URL.revokeObjectURL(objectURL);objectURL=null;$("video").removeAttribute("src");$("video").load();
-      job=null;sceneOrder=[];titleItems=[];setStudioBrief(null);clearDirector();clearClipper();resetMusic();clips=[];selected.clear();sceneOrder=[];edits={};cues=[];visuals.clear();history=[];future=[];current=-1;activeCue=-1;refreshCaption();hideExports();
+      job=null;sceneOrder=[];titleItems=[];resetLogo();setStudioBrief(null);clearDirector();clearClipper();resetMusic();clips=[];selected.clear();sceneOrder=[];edits={};cues=[];visuals.clear();history=[];future=[];current=-1;activeCue=-1;refreshCaption();hideExports();
       $("placeholder").hidden=false;$("project").textContent="Untitled sequence";$("project-name").value="";$("format").textContent="NO MEDIA";
     }
     await refreshProjects();log("Project deleted");

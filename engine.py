@@ -168,7 +168,7 @@ def validate_render_budget(preset, framing, duration, quality):
     if dims and max(dims)>=2560 and duration>120:
         raise ValueError("QHD export limited to 120 seconds")
 
-def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None, preset="original", framing="fit", quality="standard", cancel=None, progress=None, title_ass=None):
+def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None, preset="original", framing="fit", quality="standard", cancel=None, progress=None, title_ass=None, logo_path=None, logo_position="top_right", logo_size=20, logo_opacity=1, logo_start=0, logo_end=None):
     total=sum(c["end"]-c["start"] for c in clips)
     validate_render_budget(preset,framing,total,quality)
     progress=progress or (lambda value: None)
@@ -211,19 +211,41 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
         elif audio:
             filters.append(f"[0:a:0]atrim=start={a}:end={b},asetpts=PTS-STARTPTS,volume={source_gain}[a{i}]")
             inputs.append(f"[a{i}]")
-    video_label = "[joined]" if burn_ass is not None or title_ass is not None else "[v]"
+    has_layers=burn_ass is not None or title_ass is not None
+    video_label = "[joined]" if has_layers or logo_path is not None else "[v]"
     filters.append("".join(inputs) + f"concat=n={len(clips)}:v=1:a={int(has_audio)}" + video_label + ("[a]" if has_audio else ""))
-    if burn_ass is not None or title_ass is not None:
+    layer_input=video_label
+    if logo_path is not None:
+        corners={"top_left":("8","8"),"top_right":("W-w-8","8"),"bottom_left":("8","H-h-8"),"bottom_right":("W-w-8","H-h-8")}
+        if logo_position not in corners:raise ValueError("Invalid logo position")
+        x,y=corners[logo_position]
+        logo_index=1+int(subtitle_path is not None)+int(music_path is not None)
+        if dimensions is None:
+            info=probe(source);w,h=info["width"],info["height"]
+        else:w,h=dimensions
+        if type(logo_size) is not int or not 10<=logo_size<=40 or type(logo_opacity) not in (int,float) or not math.isfinite(logo_opacity) or not .1<=logo_opacity<=1:
+            raise ValueError("Invalid logo appearance")
+        if type(logo_start) not in (int,float) or not math.isfinite(logo_start) or not 0<=logo_start<=MAX_DURATION or (logo_end is not None and (type(logo_end) not in (int,float) or not math.isfinite(logo_end) or not logo_start<logo_end<=MAX_DURATION+.000001)):
+            raise ValueError("Invalid logo timing")
+        edge=max(2,int(min(w,h)*logo_size/100))
+        filters.append(f"[{logo_index}:v:0]scale={edge}:{edge}:force_original_aspect_ratio=decrease,format=rgba,colorchannelmixer=aa={logo_opacity:.6f}[logo]")
+        end=min(total,logo_end) if logo_end is not None else total
+        enabled=f"gte(t,{logo_start:.6f})*lt(t,{end:.6f})"
+        layer_input="[watermarked]" if has_layers else "[v]"
+        filters.append(f"[joined][logo]overlay=x={x}:y={y}:eof_action=repeat:repeatlast=1:enable='{enabled}'{layer_input}")
+    if has_layers:
         stages=[]
         if title_ass is not None:stages.append("ass=filename=titles.ass")
         if burn_ass is not None:stages.append("ass=filename=captions.ass")
-        filters.append("[joined]"+",".join(stages)+"[v]")
+        filters.append(layer_input+",".join(stages)+"[v]")
     args = ["ffmpeg", "-nostdin", "-y", "-hide_banner", "-threads", "2", "-i", str(Path(source).resolve()),
             ]
     if subtitle_path is not None:
         args += ["-f", "srt", "-i", str(subtitle_path)]
     if music_path is not None:
         args += ["-i", str(Path(music_path).resolve())]
+    if logo_path is not None:
+        args += ["-f","image2","-pattern_type","none","-c:v","png","-i",str(Path(logo_path).resolve())]
     args += ["-filter_complex_threads", "2", "-filter_complex", ";".join(filters), "-map", "[v]"]
     if has_audio:
         args += ["-map", "[a]", "-c:a", "aac", "-b:a", "160k"]
