@@ -169,3 +169,6 @@
 - Added fixed classic/purple/dark title presets and lower-left third position, persisted style with backward-compatible default, preview and real ASS box rendering. Added pixel-level color test and actual Chromium title creation/playback/reopen scenario. CI pending. No uploaded graphic/video overlay or production launch; no fees.
 
 - CI 45953983587: Chromium passed, 61 of 62 Python tests passed; lower-third render completed but frame extraction failed using FFmpeg seek string `.5`. Corrected to `0.5`; rerun required for colored-pixel assertion.
+
+## PNG watermark
+- Stacked on title PR #22 corrected head ee859716b75413d09abe63b0324022feb6eea017 while its CI runs. Added single bounded PNG normalization/upload, scoped retrieval, fixed-corner FFmpeg watermark, saved revision and settings, preview and issuer route allowlist. Added actual pixel, duration, normalization and project restore tests. CI pending. No arbitrary image/video tracks or live production access; no paid service.
