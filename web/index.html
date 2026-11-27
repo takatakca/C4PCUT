@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>C4PCUT | AUTO CUT</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><header><strong><span class="logo">▣</span> C4PCUT <small>/ AUTO CUT</small></strong><span id="project">Untitled sequence</span><span class="spacer"></span><span id="status">● READY</span><label class="button">Import footage<input id="file" type="file" accept="video/*" hidden></label><button id="analyze" disabled>Auto cut</button><button id="render" disabled>Export</button></header>
+<main id="studio"><section class="panel script"><h2>EDIT SCRIPT <small>auto_edit.py</small></h2><ol id="code"></ol><footer>Trusted editing commands · no arbitrary code</footer></section>
+<section class="panel monitor"><h2>PROGRAM MONITOR <small id="format">NO MEDIA</small></h2><div class="screen"><video id="video" controls playsinline></video><div id="placeholder">IMPORT FOOTAGE TO BEGIN</div></div><footer><span id="time">00:00.000</span><span id="selection">No clip selected</span></footer></section>
+<section class="panel execution"><h2>EXECUTION LOG</h2><div id="log" role="log" aria-live="polite"></div><footer><progress id="progress" max="5" value="0"></progress></footer></section>
+<section class="panel timeline"><h2>TIMELINE <small>Click a scene to preview · deselect to exclude from export</small></h2><div class="tracks" id="tracks"><div class="ruler"><span>TRACK</span><div id="ticks"></div></div></div><footer><span id="summary">No media</span><a id="download" hidden>Download MP4</a></footer></section>
+<svg id="connections" aria-hidden="true"></svg></main></body></html>
