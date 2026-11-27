@@ -75,3 +75,8 @@
 - Added transactional SQLite render-attempt ledger, optional monthly cap, completed/cancelled/failed/interrupted accounting, main and clipper integration, owner usage display and tests. No external billing; accepted failed/cancelled attempts count toward resource cap only. Proposed Studio integration contract documented; no changes to takatak-v1. New CI pending.
 
 - Added HTTP regression coverage for usage authorization, completed/cancelled accounting and 429 quota rejection before render. Clipper cleanup now executes before accounting finalization. CI pending.
+
+## Private workspace isolation
+- Usage CI 45930401547 passed; PR #5 merged at eefbb5f108b9fbbc0f34b822a805b0cf2019c22f.
+- Added optional explicit workspace configuration, server-selected project/media namespace, per-workspace CSRF and SQLite usage, scoped render status/cancel and private Compose overlay. Added HTTP regression tests for cross-workspace access and configuration traversal. New CI pending.
+- Default owner mode unchanged; no changes to takatak-v1, real Studio SSO, billing or public deployment. Shared process/volume remains a limitation.

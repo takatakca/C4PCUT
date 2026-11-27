@@ -60,3 +60,6 @@
 
 ## Usage foundation
 - Private single-owner SQLite render-attempt ledger and optional UTC monthly seconds cap; tracks outcomes and persists with owner data. No monetary charges, per-tenant billing or live Studio SSO. Proposed trust boundary documented. New CI pending.
+
+## Private workspace isolation
+- Optional private multi-workspace namespaces with admin-provisioned credentials, distinct project stores, usage ledgers, CSRF tokens and scoped queue controls. Cross-workspace HTTP tests added; new CI pending. Shared worker/process and volume remain; actual TAKATAK identity/entitlements, storage quotas and public deployment not implemented.
