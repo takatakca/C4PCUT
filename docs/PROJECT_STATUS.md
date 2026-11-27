@@ -57,3 +57,6 @@
 
 ## Private access security
 - Optional owner-only authentication and origin/CSRF checks, security headers, protected media/session endpoints and Compose overlay. Tests added, CI pending. Studio identity, entitlement verification, workspace ownership, public TLS, media worker sandboxing and durable quotas remain to be implemented. Default loopback-only usage remains supported.
+
+## Usage foundation
+- Private single-owner SQLite render-attempt ledger and optional UTC monthly seconds cap; tracks outcomes and persists with owner data. No monetary charges, per-tenant billing or live Studio SSO. Proposed trust boundary documented. New CI pending.

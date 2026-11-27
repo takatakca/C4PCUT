@@ -69,3 +69,7 @@
 - PR #3 merged to main at b888e7440fae543825c25a2576bb767746af29d4; CI 45922817169 succeeded.
 - Added optional private owner authentication, protected static editor/session/media and mutation endpoints, same-origin mutation checks, constant-time credential comparisons, restrictive browser headers, owner Compose overlay and HTTP security tests. Health endpoint remains minimal and anonymous. Latest CI pending.
 - This is not Studio SSO or multi-tenant isolation; no deployment, new hosting or modifications to takatak-v1.
+
+## Local usage and entitlement foundation
+- Owner security CI 45926153893 passed; PR #4 merged at 147d4752a8178df6f843b7d97f1207cc91e6657a.
+- Added transactional SQLite render-attempt ledger, optional monthly cap, completed/cancelled/failed/interrupted accounting, main and clipper integration, owner usage display and tests. No external billing; accepted failed/cancelled attempts count toward resource cap only. Proposed Studio integration contract documented; no changes to takatak-v1. New CI pending.

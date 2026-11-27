@@ -163,7 +163,7 @@ function connect(line,target){
   const p=document.createElementNS("http://www.w3.org/2000/svg","path");p.setAttribute("d","M"+x+" "+y+" C"+x+" "+(ty-35)+" "+tx+" "+(y+30)+" "+tx+" "+ty);p.setAttribute("stroke","#b48aff");svg.replaceChildren(p);clearTimeout(connectionTimer);connectionTimer=setTimeout(()=>svg.replaceChildren(),2000);
 }
 async function action(fn){
-  if(busy)return;busy=true;updateButtons();drawTimeline();try{await fn();}catch(e){log(e.message,true);}finally{busy=false;drawTimeline();}
+  if(busy)return;busy=true;updateButtons();drawTimeline();try{await fn();}catch(e){log(e.message,true);}finally{busy=false;drawTimeline();refreshUsage();}
 }
 $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)return;action(async()=>{
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
@@ -207,7 +207,7 @@ $("ticks").addEventListener("click",e=>{if(!job)return;const b=$("ticks").getBou
 window.addEventListener("resize",updatePlayhead);
 $("tracks").addEventListener("scroll",updatePlayhead);
 $("file").disabled=true;drawTimeline();
-fetch("/api/session").then(r=>r.json()).then(data=>{token=data.token;updateButtons();log("Local processing engine ready");refreshProjects().catch(e=>log(e.message,true));}).catch(()=>log("Unable to connect to local engine",true));
+fetch("/api/session").then(r=>r.json()).then(data=>{token=data.token;updateButtons();log("Local processing engine ready");refreshProjects().catch(e=>log(e.message,true));refreshUsage();}).catch(()=>log("Unable to connect to local engine",true));
 
 function refreshCaption(){$("caption-text").value=cues[activeCue]?.text||"";}
 function updateCaptionOverlay(){
@@ -354,3 +354,5 @@ $("delete-project").addEventListener("click",()=>{
 });
 
 $("cancel-render").addEventListener("click",async()=>{if(!activeRender)return;try{const state=await request("/api/render/cancel",{render_id:activeRender});$("render-status").textContent=state.status;log("Render cancellation requested");}catch(e){log(e.message,true);}});
+
+async function refreshUsage(){try{const response=await fetch("/api/usage");if(!response.ok)throw new Error("Usage unavailable");const data=await response.json();$("usage-summary").textContent=data.enabled===false?"Usage unavailable":data.month+" · "+data.attempted_seconds+"s attempted"+(data.limit_seconds===null?" · no cap":" / "+data.limit_seconds+"s cap");}catch(e){$("usage-summary").textContent="Usage unavailable";}}
