@@ -69,3 +69,5 @@ Optional private gateway assertion verifier has been implemented for future Stud
 Gateway receiver v2 adds mandatory exact body digest, bounded authenticated body staging and persistent SQLite nonce reservations. V1 assertions are rejected. See the v2 contract in docs/STUDIO_INTEGRATION.md.
 
 Server-only Node issuer reference: integration/studio-issuer.mjs verifies injected authoritative workspace permission and dedicated C4PCUT entitlement before signing exact request bytes. It is not wired into TAKATAK v1; disabled by default and cannot be used as a browser token endpoint. Cross-language tests cover its compatibility with the Python receiver.
+
+The reference issuer validates an explicit, current C4PCUT product grant for every plan, including Free. A disabled Canadian price catalog is validated separately; no plan selection can grant access or initiate payment. Plan quotas remain undecided.

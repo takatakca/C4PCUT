@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {createHash,createHmac} from "node:crypto";
 import {createIssuer,AccessDenied} from "./studio-issuer.mjs";
 const client="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",profile="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",key="ab".repeat(32);
-const defaults={env:{TAKATAK_C4PCUT_GATEWAY_ENABLED:"true",TAKATAK_STUDIO_ENABLED:"true"},studioEnabled:e=>e.TAKATAK_STUDIO_ENABLED==="true",requireWorkspaceApiPermission:async p=>{assert.equal(p,"create_content");return {ok:true,access:{mode:"client_scoped",activeClientId:client,profileId:profile}}},lookupEntitlement:async (c,p)=>{assert.equal(c,client);assert.equal(p,profile);return {clientId:client,product:"c4pcut",active:true}},readKey:async()=>key,clock:()=>1000000,nonce:()=>"c".repeat(32)};
+const defaults={env:{TAKATAK_C4PCUT_GATEWAY_ENABLED:"true",TAKATAK_STUDIO_ENABLED:"true"},studioEnabled:e=>e.TAKATAK_STUDIO_ENABLED==="true",requireWorkspaceApiPermission:async p=>{assert.equal(p,"create_content");return {ok:true,access:{mode:"client_scoped",activeClientId:client,profileId:profile}}},lookupEntitlement:async (c,p)=>{assert.equal(c,client);assert.equal(p,profile);return {clientId:client,product:"c4pcut",active:true,plan:"pro",status:"active",validFrom:900,validUntil:1100}},readKey:async()=>key,clock:()=>1000000,nonce:()=>"c".repeat(32)};
 test("verified access produces receiver-compatible signature and exact bytes",async()=>{
   const body=Buffer.from('{"id":"example"}');
   const result=await createIssuer(defaults)({method:"POST",target:"/api/projects/save",body,clientId:"untrusted"});
