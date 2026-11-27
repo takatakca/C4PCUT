@@ -104,3 +104,11 @@
 ## Dedicated plan grant policy
 - PR #8 already merged at 4fb4212dd58fe81b067f4e69cdeddf75c3c43bf6. Issuer CI 45934058126 passed; catalog-head CI 45934101746 was still running when checked.
 - Added disabled catalog validator, explicit active bounded Free/Standard/Pro grant checks, issuer expiry capped by grant, and policy/interop tests. No real V1 grant lookup, checkout, billing or deployment. Unknown/expired grants denied; no grace-period or plan allowances assumed. Latest CI pending.
+
+## Private grant registry
+- PR #9 CI 45934228486 passed and PR #9 merged at 9e0c622394b12fa2a83bac8c0f9a61cef6b75e7c (concurrent merge observed).
+- Added private Linux operator CLI for explicit bounded grants/revocation with locked atomic writes, before/after audit and read-only Node lookup. Added cross-language lifecycle tests and deployment notes. No real grants provisioned, no V1 edits, payments or authoritative billing connection. New CI pending.
+
+## V1 billing read adapter candidate
+- PR #10 CI 45934518417 still running at start; kept changes on branch, no unverified merge.
+- Inspected actual V1 GrowthSubscription schema and existing AI organizer subscription check. Added read-only adapter with dedicated proposed plan keys, exact tenant filtering, active subscription period check and ambiguity rejection. Node tests connect adapter to reference issuer and exercise cancellation. No live database query, V1 writes, product registration, Stripe calls or billing activation. Latest CI pending.
