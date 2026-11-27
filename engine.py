@@ -168,7 +168,7 @@ def validate_render_budget(preset, framing, duration, quality):
     if dims and max(dims)>=2560 and duration>120:
         raise ValueError("QHD export limited to 120 seconds")
 
-def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None, preset="original", framing="fit", quality="standard", cancel=None, progress=None):
+def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None, preset="original", framing="fit", quality="standard", cancel=None, progress=None, title_ass=None):
     total=sum(c["end"]-c["start"] for c in clips)
     validate_render_budget(preset,framing,total,quality)
     progress=progress or (lambda value: None)
@@ -211,10 +211,13 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
         elif audio:
             filters.append(f"[0:a:0]atrim=start={a}:end={b},asetpts=PTS-STARTPTS,volume={source_gain}[a{i}]")
             inputs.append(f"[a{i}]")
-    video_label = "[joined]" if burn_ass is not None else "[v]"
+    video_label = "[joined]" if burn_ass is not None or title_ass is not None else "[v]"
     filters.append("".join(inputs) + f"concat=n={len(clips)}:v=1:a={int(has_audio)}" + video_label + ("[a]" if has_audio else ""))
-    if burn_ass is not None:
-        filters.append("[joined]ass=filename=captions.ass[v]")
+    if burn_ass is not None or title_ass is not None:
+        stages=[]
+        if title_ass is not None:stages.append("ass=filename=titles.ass")
+        if burn_ass is not None:stages.append("ass=filename=captions.ass")
+        filters.append("[joined]"+",".join(stages)+"[v]")
     args = ["ffmpeg", "-nostdin", "-y", "-hide_banner", "-threads", "2", "-i", str(Path(source).resolve()),
             ]
     if subtitle_path is not None:
@@ -227,10 +230,11 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
     if subtitle_path is not None:
         args += ["-map", "1:0", "-c:s", "mov_text", "-disposition:s:0", "default"]
     args += ["-c:v", "libx264", "-threads", "2", "-preset", "veryfast", "-crf", str(validate_quality(quality)), "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(Path(output).resolve())]
-    if burn_ass is not None:
-        # Constant filter filename, private working directory, no path interpolation.
+    if burn_ass is not None or title_ass is not None:
+        # Constant filter filenames, private working directory, no path interpolation.
         with tempfile.TemporaryDirectory(prefix="c4pcut-ass-") as working:
-            (Path(working)/"captions.ass").write_text(burn_ass, encoding="utf-8")
+            if burn_ass is not None:(Path(working)/"captions.ass").write_text(burn_ass, encoding="utf-8")
+            if title_ass is not None:(Path(working)/"titles.ass").write_text(title_ass, encoding="utf-8")
             run_render(args,total,cancel,progress,cwd=working,timeout=600 if preset.endswith(("4k","qhd")) else 300)
     else:
         run_render(args,total,cancel,progress,timeout=600 if preset.endswith(("4k","qhd")) else 300)
