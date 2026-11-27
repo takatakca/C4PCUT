@@ -111,3 +111,6 @@
 
 ## Monitor effect preview
 - PR #16 CI passed and merged. Standalone private admin visual report available. Optional browser source-time effect preview added; pure and Chromium tests pending. Not exact export preview or live deployment.
+
+## Edited sequence monitor
+- PR #17 passed CI and merged. Selected-trim playback, edited-time mapping, automatic gaps and stop/scrub controls implemented. New tests pending CI. Approximate source audio/visuals only, not exact FFmpeg playback, no live deployment.
