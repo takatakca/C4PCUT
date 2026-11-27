@@ -134,3 +134,7 @@
 - Added separate Chromium CI job using Playwright, actual local Python server, restricted private workspace and FFmpeg fixture; exercises import/analyze/render/download, blocked features, exhausted quota and project lifecycle. Added UI remaining-quota guard and mutation/refresh serialization, refresh project count. Browser execution pending CI; local GitHub clone blocked by DNS. No live V1/payment/deployment.
 
 - Browser CI 45940304013: test job succeeded; browser job stopped before Chromium installation because playwright==1.51.1 was unavailable. Pinned 1.65.2 from the versions explicitly listed by pip in the failed job, and Ubuntu 24.04 for stable runner compatibility. Exact browser result still pending.
+
+## Private administration report
+- PR #14 exact CI 45940859489 succeeded including browser_smoke.py and main test job; merged at 4188e410aa9b8815d12b5262cc75139aec054a13.
+- Added offline read-only workspace/grant/plan/usage snapshot with redacted identifiers and no ledger initialization; tests verify active/expired grant, accepted render preserved, missing ledger not created. CI pending. No live files or payment/production changes; browser admin UI remains outstanding.
