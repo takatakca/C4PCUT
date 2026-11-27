@@ -1,4 +1,4 @@
-// Server-only reference adapter for the private C4PCUT gateway v2.
+// Server-only reference adapter for the private C4PCUT gateway v3.
 // Never bundle into a browser; do not expose an endpoint that returns assertions.
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import {activeGrant} from "./plan-policy.mjs";
@@ -42,8 +42,8 @@ export function createIssuer({env,requireWorkspaceApiPermission,studioEnabled,lo
     const iat=Math.floor(clock()/1000), n=nonce();
     if(!Number.isSafeInteger(iat)||iat<0||typeof n!=="string"||!/^[a-f0-9]{32}$/.test(n))deny();
     if(!activeGrant(grant,activeClientId,iat))deny();
-    const claims={iss:"takatak-studio-gateway",aud:"c4pcut-private-v2",sub:profileId,
-      client_id:activeClientId,permission:"create_content",entitlement:"c4pcut_active",
+    const claims={iss:"takatak-studio-gateway",aud:"c4pcut-private-v3",sub:profileId,
+      client_id:activeClientId,permission:"create_content",entitlement:"c4pcut_active",plan:grant.plan,
       iat,exp:Math.min(iat+30,grant.validUntil),nonce:n,method,target,body_sha256:createHash("sha256").update(bytes).digest("hex")};
     const encoded=Buffer.from(JSON.stringify(claims),"utf8").toString("base64url");
     const signature=createHmac("sha256",Buffer.from(key,"hex")).update(encoded,"ascii").digest("base64url");

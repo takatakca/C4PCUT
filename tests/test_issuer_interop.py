@@ -21,4 +21,5 @@ console.log(result.header);
         principal=g.verify(token,"GET","/api/session")
         self.assertIsNotNone(principal)
         self.assertEqual(principal.workspace,"alpha")
+        self.assertEqual(principal.plan,"pro")
         self.assertIsNone(g.verify(token,"GET","/api/session"))

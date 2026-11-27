@@ -91,3 +91,6 @@
 
 ## Workspace capabilities
 - Optional administrator-configured resource and feature restrictions enforced server-side; main/clipper render checks before accounting, original-resolution guard, session capability metadata. Tests added, CI pending. Commercial per-plan allocation and signed subscription-to-policy mapping not implemented. No real billing or deployment.
+
+## Signed plan capability mapping
+- PR #11 passed CI and merged. Gateway v3 signs plan, requires explicit capability profiles and applies intersection and effective monthly cap. New CI pending. No approved commercial quota values, actual V1 issuer or deployment.
