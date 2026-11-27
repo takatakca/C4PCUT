@@ -108,3 +108,6 @@
 
 ## C4PCUT ADMIN V2
 - PR #15 passed CI and merged. Private standalone HTML visual report added. Test suite pending. Read-only snapshot, not a live administrative web service; no V1 or production integration.
+
+## Monitor effect preview
+- PR #16 CI passed and merged. Standalone private admin visual report available. Optional browser source-time effect preview added; pure and Chromium tests pending. Not exact export preview or live deployment.

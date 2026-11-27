@@ -43,6 +43,14 @@ function hideExports(){$("download").hidden=true;$("download-srt").hidden=true;}
 function edited(c){return edits[c.id]||c;}
 function remember(){history.push(snapshot());if(history.length>100)history.shift();future=[];}
 function restore(stack, other){if(busy||!stack.length)return;other.push(snapshot());const state=stack.pop();selected=new Set(state.selected);edits=state.edits;cues=state.cues;activeCue=-1;refreshCaption();refreshInspector();hideExports();drawTimeline();log("Selection history restored");}
+function updateEffectPreview(){
+  const video=$("video"), enabled=!!job&&$("preview-effects").checked;
+  const state=EffectPreview.at(clips,edits,selected,video.currentTime,enabled);
+  video.style.filter=state.filter;
+  video.style.transform=state.scale===1?"none":"scale("+state.scale.toFixed(4)+")";
+  video.dataset.previewEffect=state.effect;
+  $("preview-effect-label").textContent=!enabled?"Source footage · no export preview":state.effect==="none"?"Approximate effects · source time":"Approximate "+state.effect+" preview · source time";
+}
 function updatePlayhead(){
   const lane=$("tracks").querySelector(".lane");
   if(!lane||!job){$("playhead").hidden=true;return;}
@@ -72,6 +80,7 @@ function step(index, done=false) {
 }
 function updateButtons() {
   $("file").disabled = busy;
+  $("preview-effects").disabled=!job||!clips.length;
   $("analyze").disabled = busy || !job;
   $("render").disabled = busy || !selected.size;
   $("studio-pack").disabled=busy||!job;
@@ -146,7 +155,7 @@ function drawTimeline() {
     }
     parent.append(row);
   }
-  summary();updatePlayhead();updateCaptionOverlay();
+  summary();updatePlayhead();updateCaptionOverlay();updateEffectPreview();
 }
 function refreshInspector(){
   const base=clips.find(c=>c.id===current);if(!base)return;
@@ -206,7 +215,10 @@ $("render").addEventListener("click",()=>action(async()=>{
   }finally{activeRender=null;updateButtons();}
 
 }));
-$("video").addEventListener("timeupdate",()=>{$("time").textContent=format($("video").currentTime);updatePlayhead();updateCaptionOverlay();});
+$("video").addEventListener("timeupdate",()=>{$("time").textContent=format($("video").currentTime);updatePlayhead();updateCaptionOverlay();updateEffectPreview();});
+$("video").addEventListener("seeked",updateEffectPreview);
+$("video").addEventListener("loadedmetadata",updateEffectPreview);
+$("preview-effects").addEventListener("change",updateEffectPreview);
 $("undo").addEventListener("click",()=>restore(history,future));
 $("redo").addEventListener("click",()=>restore(future,history));
 $("ticks").addEventListener("click",e=>{if(!job)return;const b=$("ticks").getBoundingClientRect();$("video").currentTime=Math.max(0,Math.min(job.duration,(e.clientX-b.left)/b.width*job.duration));updatePlayhead();});
@@ -270,7 +282,7 @@ $("cinematic").addEventListener("click",()=>{
     const effect=c.end-c.start<.5?"contrast":palette[index%palette.length];
     edits[c.id]={start:existing.start,end:existing.end,effect};index++;
   }
-  hideExports();refreshInspector();drawTimeline();log("Cinematic preset applied to "+index+" selected scenes (render only)");connect(3,$("clip-"+[...selected][0]));
+  hideExports();refreshInspector();drawTimeline();log("Cinematic preset applied to "+index+" selected scenes (approximate monitor preview available)");connect(3,$("clip-"+[...selected][0]));
 });
 
 $("caption-mode").addEventListener("change",()=>{hideExports();updateCaptionOverlay();log("Caption export style: "+$("caption-mode").value);});
@@ -309,7 +321,7 @@ $("clipper-render-all").addEventListener("click",()=>action(async()=>{
   $("clipper-status").textContent=(clipCandidates.length-failures)+" / "+clipCandidates.length+" clips rendered in this batch";
 }));
 
-for(const id of ["export-preset","export-framing","export-quality"])$(id).addEventListener("change",()=>{hideExports();updateButtons();log("Export format updated; preview remains source footage");});
+for(const id of ["export-preset","export-framing","export-quality"])$(id).addEventListener("change",()=>{hideExports();updateButtons();log("Export format updated; monitor does not preview output framing");});
 
 async function refreshProjects(){
   const data=await request("/api/projects/list",{});
