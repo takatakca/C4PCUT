@@ -25,6 +25,16 @@ class ProjectTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 projects.save(job,{"name":"bad","selected":[99]})
             self.assertEqual(projects.read(folder)["state"],state)
+    def test_scene_order_roundtrip_and_legacy_default(self):
+        with tempfile.TemporaryDirectory() as d:
+            folder=Path(d);(folder/"source.media").write_bytes(b"source")
+            meta={"duration":4,"width":160,"height":120,"audio":False}
+            clips=engine.segments(4,[2]);job={"folder":folder,"metadata":meta,"clips":clips}
+            projects.save(job,{"name":"Reordered","selected":[0,1],"order":[1,0]})
+            self.assertEqual(projects.read(folder)["state"]["order"],[1,0])
+            self.assertEqual(projects.validate_state({"name":"legacy","selected":[1,0]},clips,meta,False)["order"],[0,1])
+            with self.assertRaises(ValueError):projects.save(job,{"name":"invalid","selected":[0,1],"order":[1,1]})
+            self.assertEqual(projects.read(folder)["state"]["order"],[1,0])
     def test_empty_selection_and_invalid_state(self):
         meta={"duration":4}
         clips=engine.segments(4,[2])

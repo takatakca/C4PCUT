@@ -442,7 +442,7 @@ class Handler(BaseHTTPRequestHandler):
                             ledger.finish(usage_id,outcome)
                 return self.reply({"url":f"/api/clipper/{job_id}/{job['clip_batch']}/{index}.mp4"})
             if path == "/api/render":
-                selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}))
+                selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}),payload.get("order"))
                 cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
                 mapped = captions.remap(cues, selected)
                 caption_mode = captions.validate_mode(payload.get("caption_mode", "soft"))

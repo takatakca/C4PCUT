@@ -114,3 +114,6 @@
 
 ## Edited sequence monitor
 - PR #17 passed CI and merged. Selected-trim playback, edited-time mapping, automatic gaps and stop/scrub controls implemented. New tests pending CI. Approximate source audio/visuals only, not exact FFmpeg playback, no live deployment.
+
+## Timeline order
+- Explicit output scene ordering, persisted projects and FFmpeg/preview integration implemented on separate branch while PR #19 CI runs. Added actual reversed-color export test and caption remap test. CI pending; browser drag/drop not yet exercised. Full multi-track overlap, live TAKATAK integration and deployment remain open.

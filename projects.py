@@ -49,6 +49,7 @@ def validate_state(payload, clips, metadata, has_music):
             engine.validate_selection(selected,clips)
     elif selected or edits:
         raise ValueError("No scenes available")
+    order=engine.validate_order(selected,payload.get("order"))
     use_music=payload.get("use_music",False)
     if type(use_music) is not bool or (use_music and not has_music):
         raise ValueError("Invalid music state")
@@ -62,7 +63,7 @@ def validate_state(payload, clips, metadata, has_music):
     brief=payload.get("studio_brief")
     if brief is not None:
         brief=studio_pack.parse_brief(brief)
-    return {"name":name,"selected":selected,"edits":edits,"source_mime":mime,"studio_brief":brief,
+    return {"name":name,"selected":selected,"order":order,"edits":edits,"source_mime":mime,"studio_brief":brief,
             "cues":captions.validate(payload.get("cues",[]),metadata["duration"]),
             "caption_mode":captions.validate_mode(payload.get("caption_mode","soft")),
             "use_music":use_music,"music_gain":music.validate_gain(payload.get("music_gain",.35)),

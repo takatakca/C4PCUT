@@ -150,3 +150,7 @@
 ## Edited sequence playback
 - PR #17 CI 45943695433 passed; merged at f8769da88a5afe4e6c44d471a2178c8924233602.
 - Added source-time playback of selected trimmed ranges with edited position and duration, stop, scrubber, and cut skipping. Editing or manual source seeking cancels active playback. Unit gap/trim tests and browser trimmed playback smoke added. Exact CI pending. Source audio only; not frame-accurate or a mixed soundtrack preview. No deployment/payment changes.
+
+## Timeline ordered scenes
+- Independently based on main 0e6fc7ceae39208c9937cc5a3ee90c2e07b6dc89 while audio PR #19 CI 45948907914 still running; no unverified merge.
+- Added explicit scene-order permutation validation, legacy chronological default, project manifest persistence, output order strip with drag/drop and accessible earlier/later controls, undo/redo and ordered sequence playback. Render and caption remap share validated ordering. Synthetic pixel-order and caption tests plus project roundtrip and JS mapping tests added. CI pending; audio branch integration must be reconciled before merging both. No public deployment, fees or live billing.

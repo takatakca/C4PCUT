@@ -93,3 +93,5 @@ C4PCUT ADMIN V2: append `--html /private/new-report.html` to the private admin r
 Optional monitor effect preview applies approximate browser filters for committed scene edits (mono, warm, contrast, fade, zoom) at source time. Trimmed/excluded portions show original footage. Toggle off for unmodified source view. It is not an exact FFmpeg/output framing, cut-sequence or music preview.
 
 Play edited sequence previews selected trims in source order, jumps across excluded ranges, and exposes a separate edited-time scrubber. Playback is approximate (browser seek/frame timing), source audio only; no soundtrack mix or export geometry preview. No rendering quota is consumed by playback.
+
+Timeline output-order strip supports drag-and-drop and keyboard-accessible earlier/later buttons. Explicit selected-scene permutation drives playback and FFmpeg export; saved projects preserve order, old projects default to chronological. Source tracks stay chronological, and captions and music follow source intervals into output order. No arbitrary overlapping multi-layer editing yet.

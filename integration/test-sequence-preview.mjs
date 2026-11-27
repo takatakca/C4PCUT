@@ -20,3 +20,10 @@ test("empty and invalid ranges are safe",()=>{
   assert.equal(ui.build(clips,{0:{start:-1,end:2}},new Set([0])).total,0);
   assert.equal(ui.locate(ui.build(clips,{},new Set([0])),NaN),null);
 });
+
+test("explicit output order drives edited positions; stale and duplicate IDs are discarded",()=>{
+  const p=ui.build(clips,{},new Set([0,2]),[2,2,99,0]);
+  assert.equal(p.ranges[0].id,2);assert.equal(p.ranges[1].id,0);
+  assert.equal(ui.locate(p,0).source,4);assert.equal(ui.locate(p,2).source,0);
+  assert.equal(JSON.stringify(ui.ordered(clips,new Set([0,1,2]),[2,0])),"[2,0,1]");
+});
