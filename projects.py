@@ -53,6 +53,8 @@ def validate_state(payload, clips, metadata, has_music):
         raise ValueError("Invalid music state")
     preset,framing=payload.get("preset","original"),payload.get("framing","fit")
     engine.validate_format(preset,framing)
+    quality=payload.get("quality","standard")
+    engine.validate_quality(quality)
     mime=payload.get("source_mime","video/mp4")
     if not isinstance(mime,str) or mime not in set(MIMES.values()) | {""}:
         raise ValueError("Invalid source MIME")
@@ -61,7 +63,7 @@ def validate_state(payload, clips, metadata, has_music):
             "caption_mode":captions.validate_mode(payload.get("caption_mode","soft")),
             "use_music":use_music,"music_gain":music.validate_gain(payload.get("music_gain",.35)),
             "source_gain":music.validate_gain(payload.get("source_gain",1)),
-            "preset":preset,"framing":framing}
+            "preset":preset,"framing":framing,"quality":quality}
 
 def save(job, payload):
     folder=job["folder"]

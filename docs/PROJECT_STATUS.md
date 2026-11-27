@@ -49,3 +49,6 @@
 - Explicit save/open/delete and versioned validated edit manifests, source media and immutable saved soundtrack snapshots, timeline regeneration. Persistent directory/Compose volume opt-in; default remains temporary. Eight folder cap. No persistent undo history, autosave, batch restoration, storage quota or public access; new CI pending.
 
 - Previous social export/container CI passed. Saved project API lifecycle and orphan cleanup controls added; new checks pending.
+
+## Advanced rendering
+- Main export now uses bounded in-memory background queue with measured FFmpeg output-time progress and cancellation; global mutation gate protects source state. Optional QHD/4K portrait/landscape and three CRF profiles. New CI pending. Not durable, no full live preview, high-resolution performance unverified; batch clipper remains synchronous.

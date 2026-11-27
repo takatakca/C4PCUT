@@ -23,3 +23,6 @@ Require authentication and workspace ownership enforcement for every resource; m
 
 ## Optional persistent project storage
 For a private owner-only deployment, use `docker compose -f compose.yaml -f compose.persist.yaml up -d --build`. This creates a named volume at /data. Explicit Save stores the edit manifest and soundtrack snapshot; sources and exports remain on disk until deletion. This volume is NOT size-limited by Compose; monitor available space, back it up and use a dedicated quota-limited filesystem before larger workloads. Do not run `down -v` unless deliberately deleting project data. Default Compose without the overlay remains ephemeral. No public access is supported.
+
+## Render resource limits
+The private main export queue runs one FFmpeg process at a time. Queue state is not restart-durable; cancel or finish exports before shutdown. QHD/4K presets are CPU intensive and limited to 120/60 seconds respectively. The default 2 CPU / 3 GiB container limit is deliberately conservative and may fail on demanding sources; verify available capacity before changing limits. No public worker isolation or quota accounting yet.

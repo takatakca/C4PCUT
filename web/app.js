@@ -1,7 +1,7 @@
 "use strict";
 const $ = id => document.getElementById(id);
 const commands = ["project = import_media()", "metadata = probe_media(project)", "scenes = detect_scenes(project)", "timeline = build_timeline(scenes)", "render(selected_clips)"];
-let token, job, clips = [], selected = new Set(), current = -1, busy = false, objectURL, sourceMime="";
+let token, job, clips = [], selected = new Set(), current = -1, busy = false, objectURL, sourceMime="", activeRender=null;
 let visuals = new Map(), history = [], future = [], edits = {}, cues = [], activeCue = -1;
 let musicData=null, sourceBeats=null, musicName="", directorPlan=null;
 let clipBatch=null, clipCandidates=[], clipDownloads=new Map();
@@ -12,7 +12,7 @@ function clipperButtons(){
   for(const id of ["clipper-target","clipper-count","clipper-style"])$(id).disabled=busy;
   $("clipper-results").querySelectorAll("button").forEach(b=>b.disabled=busy);
 }
-function clipperSettings(){return {cues,caption_mode:$("caption-mode").value,preset:$("export-preset").value,framing:$("export-framing").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)};}
+function clipperSettings(){return {cues,caption_mode:$("caption-mode").value,preset:$("export-preset").value,framing:$("export-framing").value,quality:$("export-quality").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)};}
 function drawClipper(){
   const parent=$("clipper-results");parent.replaceChildren();
   for(const c of clipCandidates){
@@ -72,6 +72,7 @@ function updateButtons() {
   $("file").disabled = busy;
   $("analyze").disabled = busy || !job;
   $("render").disabled = busy || !selected.size;
+  $("export-quality").disabled=busy;$("cancel-render").disabled=!activeRender;
   $("save-project").disabled=busy||!job;
   $("open-project").disabled=busy||!$("saved-projects").value||$("saved-projects").selectedOptions[0]?.dataset.saved!=="true";
   $("delete-project").disabled=busy||(!job&&!$("saved-projects").value);
@@ -181,7 +182,23 @@ $("analyze").addEventListener("click",()=>action(async()=>{
 }));
 $("render").addEventListener("click",()=>action(async()=>{
   step(4);hideExports();log("Rendering "+selected.size+" selected scenes…");
-  const result=await request("/api/render",{id:job.id,clips:[...selected],edits,cues,caption_mode:$("caption-mode").value,preset:$("export-preset").value,framing:$("export-framing").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)});step(4,true);log("MP4 export complete");$("download").href=result.url;$("download").hidden=false;if(result.captions_url){$("download-srt").href=result.captions_url;$("download-srt").hidden=false;}connect(4,$("download"));
+  $("render-progress").value=0;$("render-status").textContent="Submitting";
+  try{
+    const submitted=await request("/api/render",{id:job.id,clips:[...selected],edits,...clipperSettings()});
+    activeRender=submitted.render_id;updateButtons();
+    while(true){
+      const state=await request("/api/render/status",{render_id:activeRender});
+      $("render-progress").value=state.progress;$("render-status").textContent=state.status+" · "+state.progress+"%";
+      if(state.status==="completed"){
+        const result=state.result;step(4,true);log("MP4 export complete");$("download").href=result.url;$("download").hidden=false;
+        if(result.captions_url){$("download-srt").href=result.captions_url;$("download-srt").hidden=false;}
+        connect(4,$("download"));break;
+      }
+      if(state.status==="failed"||state.status==="cancelled"){log("Render "+state.status,state.status==="failed");break;}
+      await new Promise(resolve=>setTimeout(resolve,600));
+    }
+  }finally{activeRender=null;updateButtons();}
+
 }));
 $("video").addEventListener("timeupdate",()=>{$("time").textContent=format($("video").currentTime);updatePlayhead();updateCaptionOverlay();});
 $("undo").addEventListener("click",()=>restore(history,future));
@@ -286,7 +303,7 @@ $("clipper-render-all").addEventListener("click",()=>action(async()=>{
   $("clipper-status").textContent=(clipCandidates.length-failures)+" / "+clipCandidates.length+" clips rendered in this batch";
 }));
 
-for(const id of ["export-preset","export-framing"])$(id).addEventListener("change",()=>{hideExports();updateButtons();log("Export format updated; preview remains source footage");});
+for(const id of ["export-preset","export-framing","export-quality"])$(id).addEventListener("change",()=>{hideExports();updateButtons();log("Export format updated; preview remains source footage");});
 
 async function refreshProjects(){
   const data=await request("/api/projects/list",{});
@@ -314,7 +331,7 @@ $("open-project").addEventListener("click",()=>{
     objectURL=URL.createObjectURL(new Blob([raw],{type:sourceMime}));
     job=result;clearDirector();clearClipper();resetMusic();clips=result.clips;visuals.clear();history=[];future=[];current=-1;activeCue=-1;
     const s=result.state;selected=new Set(s.selected);edits=s.edits;cues=s.cues;musicData=result.music;musicName="Saved soundtrack";
-    $("use-music").checked=s.use_music;$("music-gain").value=s.music_gain;$("source-gain").value=s.source_gain;$("caption-mode").value=s.caption_mode;$("export-preset").value=s.preset;$("export-framing").value=s.framing;
+    $("use-music").checked=s.use_music;$("music-gain").value=s.music_gain;$("source-gain").value=s.source_gain;$("caption-mode").value=s.caption_mode;$("export-preset").value=s.preset;$("export-framing").value=s.framing;$("export-quality").value=s.quality||"standard";
     $("project-name").value=s.name;$("project").textContent=s.name;$("video").src=objectURL;$("placeholder").hidden=true;$("format").textContent=job.width+" × "+job.height;
     refreshCaption();hideExports();drawTimeline();
     if(clips.length){try{const v=await request("/api/visuals",{id:job.id});visuals=new Map(v.visuals.map(x=>[x.id,x]));}catch(e){log("Visual extraction failed: "+e.message,true);}}
@@ -335,3 +352,5 @@ $("delete-project").addEventListener("click",()=>{
     await refreshProjects();log("Project deleted");
   });
 });
+
+$("cancel-render").addEventListener("click",async()=>{if(!activeRender)return;try{const state=await request("/api/render/cancel",{render_id:activeRender});$("render-status").textContent=state.status;log("Render cancellation requested");}catch(e){log(e.message,true);}});
