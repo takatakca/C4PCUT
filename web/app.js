@@ -46,7 +46,7 @@ function updateButtons() {
   $("cinematic").disabled=busy||!selected.size;
   $("undo").disabled=busy||!history.length;$("redo").disabled=busy||!future.length;
   for(const id of ["trim-in","trim-out","effect","apply-edit","reset-edit"])$(id).disabled=busy||current<0;
-  $("srt-file").disabled=busy||!job;$("transcribe").disabled=busy||!job?.audio;$("clear-captions").disabled=busy||!cues.length;$("caption-text").disabled=busy||activeCue<0;$("apply-caption").disabled=busy||activeCue<0;
+  $("srt-file").disabled=busy||!job;$("transcribe").disabled=busy||!job?.audio;$("clear-captions").disabled=busy||!cues.length;$("caption-mode").disabled=busy||!cues.length;$("caption-text").disabled=busy||activeCue<0;$("apply-caption").disabled=busy||activeCue<0;
   $("music-file").disabled=busy||!job;$("use-music").disabled=busy||!musicData;$("music-gain").disabled=busy||!$("use-music").checked;$("source-gain").disabled=busy||!job?.audio;
   $("detect-beats").disabled=busy||!job||(!job.audio&&!$("use-music").checked);$("beat-interval").disabled=busy||!beatData()?.beats.length;$("beat-cut").disabled=busy||!beatData()?.beats.length;musicStatus();
   $("status").textContent = busy ? "● PROCESSING" : "● READY";
@@ -130,7 +130,7 @@ async function action(fn){
 $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)return;action(async()=>{
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
   step(0);log("Importing "+file.name);const result=await request("/api/import",file,true);
-  job=result;resetMusic();clips=[];cues=[];activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
+  job=result;resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
   if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;
   $("format").textContent=job.width+" × "+job.height;step(1,true);log("Media verified · "+format(job.duration));
 });$("file").value="";});
@@ -144,7 +144,7 @@ $("analyze").addEventListener("click",()=>action(async()=>{
 }));
 $("render").addEventListener("click",()=>action(async()=>{
   step(4);hideExports();log("Rendering "+selected.size+" selected scenes…");
-  const result=await request("/api/render",{id:job.id,clips:[...selected],edits,cues,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)});step(4,true);log("MP4 export complete");$("download").href=result.url;$("download").hidden=false;if(result.captions_url){$("download-srt").href=result.captions_url;$("download-srt").hidden=false;}connect(4,$("download"));
+  const result=await request("/api/render",{id:job.id,clips:[...selected],edits,cues,caption_mode:$("caption-mode").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)});step(4,true);log("MP4 export complete");$("download").href=result.url;$("download").hidden=false;if(result.captions_url){$("download-srt").href=result.captions_url;$("download-srt").hidden=false;}connect(4,$("download"));
 }));
 $("video").addEventListener("timeupdate",()=>{$("time").textContent=format($("video").currentTime);updatePlayhead();updateCaptionOverlay();});
 $("undo").addEventListener("click",()=>restore(history,future));
@@ -158,8 +158,16 @@ fetch("/api/session").then(r=>r.json()).then(data=>{token=data.token;updateButto
 function refreshCaption(){$("caption-text").value=cues[activeCue]?.text||"";}
 function updateCaptionOverlay(){
   const now=$("video").currentTime;
-  const text=cues.filter(c=>c.start<=now&&now<c.end).map(c=>c.text).join("\n");
-  $("caption-overlay").textContent=text;$("caption-overlay").hidden=!text;
+  const active=cues.filter(c=>c.start<=now&&now<c.end), overlay=$("caption-overlay"), mode=$("caption-mode").value;
+  overlay.className="caption-"+mode;overlay.replaceChildren();
+  if(mode==="karaoke"){
+    for(const cue of active){
+      const row=document.createElement("div"),words=cue.text.trim().split(/\s+/);
+      const progress=Math.min(words.length,Math.floor((now-cue.start)/(cue.end-cue.start)*words.length)+1);
+      words.forEach((word,i)=>{const span=document.createElement("span");span.textContent=word+(i<words.length-1?" ":"");if(i<progress)span.className="spoken";row.append(span);});overlay.append(row);
+    }
+  }else{overlay.textContent=active.map(c=>c.text).join("\n");}
+  overlay.hidden=!active.length;
 }
 function installCues(next){remember();cues=next;activeCue=-1;refreshCaption();hideExports();drawTimeline();log(cues.length+" source-time captions loaded");}
 $("srt-file").addEventListener("change",()=>{const file=$("srt-file").files[0];$("srt-file").value="";if(!file)return;action(async()=>{if(file.size>200000)throw new Error("SRT too large");const result=await request("/api/captions/import",{id:job.id,srt:await file.text()});installCues(result.cues);});});
@@ -204,3 +212,5 @@ $("cinematic").addEventListener("click",()=>{
   }
   hideExports();refreshInspector();drawTimeline();log("Cinematic preset applied to "+index+" selected scenes (render only)");connect(3,$("clip-"+[...selected][0]));
 });
+
+$("caption-mode").addEventListener("change",()=>{hideExports();updateCaptionOverlay();log("Caption export style: "+$("caption-mode").value);});

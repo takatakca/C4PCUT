@@ -176,6 +176,7 @@ class Handler(BaseHTTPRequestHandler):
                 selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}))
                 cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
                 mapped = captions.remap(cues, selected)
+                caption_mode = captions.validate_mode(payload.get("caption_mode", "soft"))
                 use_music = payload.get("use_music", False)
                 if type(use_music) is not bool:
                     raise ValueError("Invalid music selection")
@@ -190,7 +191,8 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     if mapped:
                         subtitle.write_text(captions.to_srt(mapped), encoding="utf-8")
-                    engine.render(source, temp, selected, job["metadata"]["audio"], subtitle if mapped else None, music_path, music_gain, source_gain)
+                    burn = captions.to_ass(mapped, caption_mode) if mapped and caption_mode != "soft" else None
+                    engine.render(source, temp, selected, job["metadata"]["audio"], subtitle if mapped and caption_mode == "soft" else None, music_path, music_gain, source_gain, burn_ass=burn)
                     temp.replace(job["folder"] / "export.mp4")
                     if mapped:
                         subtitle.replace(exported_srt)

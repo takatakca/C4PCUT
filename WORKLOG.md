@@ -28,3 +28,8 @@
 - Music CI 45921640888 and caption CI 45921488435 passed.
 - Added duration-preserving fade through black, centered animated push-in, and deterministic batch cinematic styling with undo. Added real FFmpeg render test for duration, geometry and fade pixels.
 - New CI pending; no overlap transitions or model-based style decisions yet.
+
+## Burned-in captions milestone
+- Cinematic CI 45921757518 passed.
+- Added fixed classic/bold/karaoke ASS styles, validated mode selection, source preview styling and post-concat burn-in with output-time cues; SRT export preserved.
+- Karaoke timing is estimated uniformly from cue duration, not speech alignment. Added ASS injection and rendered-pixel tests; current CI pending.

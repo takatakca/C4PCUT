@@ -72,3 +72,52 @@ def stamp(t):
 
 def to_srt(cues):
     return "\n".join(f"{i}\n{stamp(c['start'])} --> {stamp(c['end'])}\n{c['text']}\n" for i,c in enumerate(cues,1))
+
+
+BURN_STYLES = {"classic", "bold", "karaoke"}
+CAPTION_MODES = {"soft", *BURN_STYLES}
+
+def validate_mode(mode):
+    if not isinstance(mode, str) or mode not in CAPTION_MODES:
+        raise ValueError("Unknown subtitle style")
+    return mode
+
+def ass_stamp(t):
+    cs = max(0, round(t*100))
+    h, cs = divmod(cs, 360000)
+    m, cs = divmod(cs, 6000)
+    s, cs = divmod(cs, 100)
+    return f"{h}:{m:02}:{s:02}.{cs:02}"
+
+def ass_plain(text):
+    # No user-supplied override commands or ASS line-break escapes.
+    return text.replace("\\", "＼").replace("{", "｛").replace("}", "｝").replace("\r", "").replace("\n", r"\N")
+
+def to_ass(cues, mode):
+    """Generate a fixed-style ASS script. Karaoke timings are estimated uniformly."""
+    if mode not in BURN_STYLES:
+        raise ValueError("Unknown burn-in style")
+    size = 27 if mode == "classic" else 36
+    primary = "&H0000EFFF" if mode == "karaoke" else "&H00FFFFFF"
+    secondary = "&H00FFFFFF"
+    header = (
+        "[Script Info]\nScriptType: v4.00+\nPlayResX: 640\nPlayResY: 360\n"
+        "ScaledBorderAndShadow: yes\nWrapStyle: 0\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        f"Style: Main,DejaVu Sans,{size},{primary},{secondary},&H00000000,&H70000000,-1,0,0,0,100,100,0,0,1,3,1,2,36,36,24,1\n\n"
+        "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    )
+    events = []
+    for cue in cues:
+        start, end = round(cue["start"]*100), round(cue["end"]*100)
+        if end <= start:
+            continue
+        text = ass_plain(cue["text"])
+        if mode == "karaoke":
+            words = cue["text"].split()
+            if words:
+                span = end-start
+                text = " ".join(r"{\kf" + str((i+1)*span//len(words)-i*span//len(words)) + "}" + ass_plain(word) for i,word in enumerate(words))
+        events.append(f"Dialogue: 0,{ass_stamp(start/100)},{ass_stamp(end/100)},Main,,0,0,0,,{text}")
+    return header + "\n".join(events) + "\n"

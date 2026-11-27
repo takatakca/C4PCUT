@@ -3,14 +3,15 @@ import json
 import math
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 
 MAX_DURATION = 600
 MAX_CLIPS = 60
 MAX_BYTES = 250 * 1024 * 1024
 
-def run(args, timeout=180):
-    return subprocess.run(args, check=True, capture_output=True, text=True, timeout=timeout)
+def run(args, timeout=180, cwd=None):
+    return subprocess.run(args, check=True, capture_output=True, text=True, timeout=timeout, cwd=cwd)
 
 def probe(path):
     info = json.loads(run(["ffprobe", "-v", "error", "-show_format", "-show_streams", "-of", "json", str(path)], 30).stdout)
@@ -87,9 +88,11 @@ def validate_edits(ids, clips, edits):
         validated[key] = {**base, "start": a, "end": b, "effect": effect}
     return [validated.get(str(c["id"]), c) for c in selected]
 
-def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1):
+def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None):
     # Normalize timestamps and concatenate independently trimmed video/audio streams.
     filters, inputs = [], []
+    if burn_ass is not None and subtitle_path is not None:
+        raise ValueError("Choose either embedded or burned-in captions")
     music_index = 2 if subtitle_path is not None else 1
     has_audio = audio or music_path is not None
     # A zoom operation needs a fixed output geometry and frame rate. Normalize
@@ -118,20 +121,29 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
         elif audio:
             filters.append(f"[0:a:0]atrim=start={a}:end={b},asetpts=PTS-STARTPTS,volume={source_gain}[a{i}]")
             inputs.append(f"[a{i}]")
-    filters.append("".join(inputs) + f"concat=n={len(clips)}:v=1:a={int(has_audio)}[v]" + ("[a]" if has_audio else ""))
-    args = ["ffmpeg", "-nostdin", "-y", "-hide_banner", "-threads", "2", "-i", str(source),
+    video_label = "[joined]" if burn_ass is not None else "[v]"
+    filters.append("".join(inputs) + f"concat=n={len(clips)}:v=1:a={int(has_audio)}" + video_label + ("[a]" if has_audio else ""))
+    if burn_ass is not None:
+        filters.append("[joined]ass=filename=captions.ass[v]")
+    args = ["ffmpeg", "-nostdin", "-y", "-hide_banner", "-threads", "2", "-i", str(Path(source).resolve()),
             ]
     if subtitle_path is not None:
         args += ["-f", "srt", "-i", str(subtitle_path)]
     if music_path is not None:
-        args += ["-i", str(music_path)]
+        args += ["-i", str(Path(music_path).resolve())]
     args += ["-filter_complex_threads", "2", "-filter_complex", ";".join(filters), "-map", "[v]"]
     if has_audio:
         args += ["-map", "[a]", "-c:a", "aac", "-b:a", "160k"]
     if subtitle_path is not None:
         args += ["-map", "1:0", "-c:s", "mov_text", "-disposition:s:0", "default"]
-    args += ["-c:v", "libx264", "-threads", "2", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(output)]
-    run(args, 300)
+    args += ["-c:v", "libx264", "-threads", "2", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(Path(output).resolve())]
+    if burn_ass is not None:
+        # Constant filter filename, private working directory, no path interpolation.
+        with tempfile.TemporaryDirectory(prefix="c4pcut-ass-") as working:
+            (Path(working)/"captions.ass").write_text(burn_ass, encoding="utf-8")
+            run(args, 300, cwd=working)
+    else:
+        run(args, 300)
     return Path(output)
 
 def build_visuals(source, folder, clips, metadata):

@@ -31,3 +31,6 @@ Import an audio file up to 64 MB, or detect onsets from the original soundtrack.
 
 ## Cinematic presets
 Choose Fade through black or Slow push-in in the scene effect selector. Auto cinematic applies a deterministic alternating set of zoom, warm, fade and contrast effects to selected scenes; existing trims are retained and undo restores edits. Zoom normalizes the sequence to 30 fps. Fades do not overlap, so subtitle/audio mapping remains unchanged. Preview still shows source footage, not rendered effects.
+
+### Burned-in caption styles
+Choose Classic, Bold or Karaoke before exporting. These styles are permanently rendered into the output pixels using FFmpeg/libass (requires FFmpeg with the ass filter and DejaVu Sans or a fallback font). SRT export remains available. Karaoke splits each cue's duration evenly across its words; it is not measured word-level speech alignment. Preview is an approximation. Selectable subtitles remain the default.

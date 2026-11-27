@@ -9,3 +9,5 @@
 .music-toolbar input[type=range]{width:90px;accent-color:#65d3af}.music-toolbar .button{padding:4px 8px}.music-lane{position:relative;background:#173b35;overflow:hidden}.beat-marker{position:absolute;top:0;bottom:0;width:1px;background:#eec87b;z-index:1;opacity:.8}.music-label{position:relative;z-index:2;align-self:center;margin:5px;padding:3px;background:#101b20c9;border-radius:3px;color:#d1f1e3;font-size:10px}
 
 #cinematic{border-color:#a88bf8;background:#4b376d}
+
+#caption-overlay.caption-classic{font-size:clamp(12px,1.8vw,20px);background:transparent}#caption-overlay.caption-bold,#caption-overlay.caption-karaoke{font-size:clamp(15px,2.5vw,29px);font-weight:850;background:transparent;text-shadow:2px 2px 2px black,-2px -2px 2px black,2px -2px 2px black,-2px 2px 2px black}#caption-overlay .spoken{color:#ffef00}

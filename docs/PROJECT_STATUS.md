@@ -29,3 +29,6 @@
 
 ## Cinematic effects
 - Added fade through black, slow animated centered zoom and deterministic batch cinematic styling. Zoom sequences normalize to 30 fps; fade preserves duration. Source monitor still shows unprocessed video. Overlapping crossfades, animated captions, rendered preview and model-directed effects remain planned. CI pending.
+
+## Burned-in captions
+- Classic, bold and estimated karaoke export styles implemented via FFmpeg/libass; browser preview approximates the style, SRT sidecar remains available. Exact word timestamps from a speech model, animated per-word transforms, and rendered preview remain planned. New CI pending.
