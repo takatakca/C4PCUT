@@ -31,3 +31,5 @@
 #logo-overlay{position:absolute;max-width:20%;max-height:20%;object-fit:contain;pointer-events:none}#logo-overlay[hidden]{display:none}#logo-overlay.top_left{top:8px;left:8px}#logo-overlay.top_right{top:8px;right:8px}#logo-overlay.bottom_left{bottom:8px;left:8px}#logo-overlay.bottom_right{bottom:8px;right:8px}.logo-toolbar{flex-wrap:wrap}
 
 #pip-overlay{position:absolute;object-fit:contain;pointer-events:none}#pip-overlay[hidden]{display:none}#pip-overlay.top_left{top:8px;left:8px}#pip-overlay.top_right{top:8px;right:8px}#pip-overlay.bottom_left{bottom:8px;left:8px}#pip-overlay.bottom_right{bottom:8px;right:8px}.pip-toolbar{flex-wrap:wrap}.pip-toolbar input[type=number]{width:65px}
+
+#transition-overlay{position:absolute;inset:0;pointer-events:none}#transition-overlay[hidden]{display:none}#transition-seconds{width:68px}

@@ -32,5 +32,13 @@ const SequencePreview=(()=>{
     const range=plan.ranges[i];
     return {index:i,source:Math.min(range.end,range.start+Math.max(0,output-range.offset)),output};
   }
-  return Object.freeze({build,position,locate,ordered});
+  function transitionAt(plan,time,settings){
+    if(!settings||settings.mode==="cut")return 0;
+    for(let i=1;i<plan.ranges.length;i++){
+      const a=plan.ranges[i-1],b=plan.ranges[i],half=Math.min(settings.seconds/2,a.duration/3,b.duration/3);
+      if(half>0&&Math.abs(time-b.offset)<half)return Math.max(0,1-Math.abs(time-b.offset)/half);
+    }
+    return 0;
+  }
+  return Object.freeze({build,position,locate,ordered,transitionAt});
 })();

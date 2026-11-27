@@ -11,6 +11,7 @@ import captions
 import titles
 import logos
 import pip_video
+import transitions
 import music
 import studio_pack
 
@@ -71,6 +72,7 @@ def validate_state(payload, clips, metadata, has_music, has_logo=False, pip_meta
             "titles":titles.validate(payload.get("titles",[]),metadata["duration"]),
             "logo":logos.validate(payload.get("logo"),has_logo,metadata["duration"]),
             "pip":pip_video.validate(payload.get("pip"),pip_meta,metadata["duration"]),
+            "transition":transitions.validate(payload.get("transition")),
             "caption_mode":captions.validate_mode(payload.get("caption_mode","soft")),
             "use_music":use_music,"music_gain":music.validate_gain(payload.get("music_gain",.35)),
             "source_gain":music.validate_gain(payload.get("source_gain",1)),

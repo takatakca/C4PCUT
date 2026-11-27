@@ -182,3 +182,7 @@
 ## Picture-in-picture editor integration
 - PR #24 CI 45956014705 succeeded and merged at dab39cde067020bc7e7d9891670d1f8635354392.
 - Added scoped upload/download, issuer allowlist, project revision persistence, main render wiring and silent approximate sequence preview. Added actual Chromium import/settings/reopen, private retrieval and saved asset tests. Exact CI pending. One secondary video only; no public deployment or billing.
+
+## Duration-preserving sequence transitions
+- PR #25 CI 45962546513 succeeded and merged at 73b49fb5fbb3099ebab96530ba5df590b6d58ee3.
+- Added validated black/white dip transitions at output scene boundaries, short-scene clamping, render integration, project state, preview, undo/redo, real FFmpeg pixel/duration/audio tests and browser saved-settings checks. CI pending. No overlap/cross-dissolve, no production launch or fees.

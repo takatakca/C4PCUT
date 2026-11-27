@@ -27,3 +27,5 @@ test("explicit output order drives edited positions; stale and duplicate IDs are
   assert.equal(ui.locate(p,0).source,4);assert.equal(ui.locate(p,2).source,0);
   assert.equal(JSON.stringify(ui.ordered(clips,new Set([0,1,2]),[2,0])),"[2,0,1]");
 });
+
+test("duration preserving transition peaks at edited boundary and clamps short scenes",()=>{const p=ui.build(clips,{},new Set([0,2]),[2,0]);const s={mode:"dip_white",seconds:1};assert.equal(ui.transitionAt(p,2,s),1);assert.equal(ui.transitionAt(p,1,s),0);assert.equal(ui.transitionAt(p,2,{mode:"cut",seconds:1}),0);assert.ok(Math.abs(ui.transitionAt(p,2.25,s)-.5)<1e-9);});

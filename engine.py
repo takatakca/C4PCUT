@@ -168,10 +168,13 @@ def validate_render_budget(preset, framing, duration, quality):
     if dims and max(dims)>=2560 and duration>120:
         raise ValueError("QHD export limited to 120 seconds")
 
-def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None, preset="original", framing="fit", quality="standard", cancel=None, progress=None, title_ass=None, logo_path=None, logo_position="top_right", logo_size=20, logo_opacity=1, logo_start=0, logo_end=None, pip_path=None, pip_settings=None):
+def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None, preset="original", framing="fit", quality="standard", cancel=None, progress=None, title_ass=None, logo_path=None, logo_position="top_right", logo_size=20, logo_opacity=1, logo_start=0, logo_end=None, pip_path=None, pip_settings=None, transition=None):
     total=sum(c["end"]-c["start"] for c in clips)
     validate_render_budget(preset,framing,total,quality)
     progress=progress or (lambda value: None)
+    import transitions
+    transition=transitions.validate(transition)
+    boundaries=transitions.halves(clips,transition)
     # Normalize timestamps and concatenate independently trimmed video/audio streams.
     filters, inputs = [], []
     if burn_ass is not None and subtitle_path is not None:
@@ -195,6 +198,7 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
         else:
             geometry = f"scale={dimensions[0]}:{dimensions[1]},fps=30" if dimensions else "scale=trunc(iw/2)*2:trunc(ih/2)*2"
         effect = effect_filter(c.get("effect","none"), b-a, dimensions)
+        effect += transitions.filter_for(i,c,boundaries,transition)
         filters.append(f"[0:v:0]trim=start={a}:end={b},setpts=PTS-STARTPTS,{geometry},setsar=1{effect}[v{i}]")
         inputs.append(f"[v{i}]")
         if music_path is not None:
