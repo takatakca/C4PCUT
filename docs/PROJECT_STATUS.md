@@ -22,3 +22,7 @@
 ## Captions
 - Source-time SRT import and text editing, timeline lane and preview overlay; output-time remapping across selected trims, selectable MP4 subtitle track and SRT export.
 - Optional CPU Faster Whisper adapter requires installed dependency and a separately provisioned local model. Actual model inference not yet verified. Word-level timing, animated burn-in and caption timing editing remain planned. Caption CI pending.
+
+## Music and beat cuts
+- Local source/imported audio transient analysis and approximate tempo; music lane waveform and onset markers, explicit beat-cut segmentation and source-aligned gain-controlled render mixing.
+- Heuristic onset detection (not a learned musical beat tracker). Source monitor does not play mixed music; music edits and resegmentation are not undoable. Cinematic transitions, beat-aware clip ranking and animated captions remain planned. Tests pending.

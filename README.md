@@ -25,3 +25,6 @@ Click a scene to select it, edit its in/out times (seconds) and choose an effect
 
 ## Captions
 Import an SRT file or optionally generate captions on the local CPU. Install optional dependencies with `python -m pip install -r requirements-ai.txt`, obtain a compatible local CTranslate2 Whisper model separately, and start with `C4PCUT_WHISPER_MODEL=/absolute/model/path python server.py`. No model downloads or hosted AI are triggered by the application. The source preview displays timed captions; export embeds a selectable MP4 subtitle track and offers a remapped SRT. Burned-in animated subtitles and word timing remain future work. Local transcription is optional and requires separate model testing.
+
+## Music and beat cuts
+Import an audio file up to 64 MB, or detect onsets from the original soundtrack. The local transient detector plots onset markers and an approximate BPM when enough intervals exist. Mix music with source audio using independent gain controls. Music is anchored to source time; selected cuts remove matching music intervals and short music is padded with silence. Beat-cut mode explicitly replaces scene cuts, trims and effects while keeping captions. Source monitor remains unmixed; export applies the mix. Music settings and replacing the segmentation are not part of undo history. No external services required.

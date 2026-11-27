@@ -72,23 +72,38 @@ def validate_edits(ids, clips, edits):
         validated[key] = {**base, "start": a, "end": b, "effect": effect}
     return [validated.get(str(c["id"]), c) for c in selected]
 
-def render(source, output, clips, audio, subtitle_path=None):
+def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1):
     # Normalize timestamps and concatenate independently trimmed video/audio streams.
     filters, inputs = [], []
+    music_index = 2 if subtitle_path is not None else 1
+    has_audio = audio or music_path is not None
     for i, c in enumerate(clips):
         a, b = c["start"], c["end"]
         filters.append(f"[0:v:0]trim=start={a}:end={b},setpts=PTS-STARTPTS,scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1{EFFECTS[c.get('effect', 'none')]}[v{i}]")
         inputs.append(f"[v{i}]")
-        if audio:
-            filters.append(f"[0:a:0]atrim=start={a}:end={b},asetpts=PTS-STARTPTS[a{i}]")
+        if music_path is not None:
+            duration = b-a
+            # Music is anchored to source time; excluded footage removes
+            # the corresponding music interval. Pad short tracks with silence.
+            filters.append(f"[{music_index}:a:0]apad=whole_dur={b},atrim=start={a}:end={b},asetpts=PTS-STARTPTS,volume={music_gain}[m{i}]")
+            if audio:
+                filters.append(f"[0:a:0]apad=whole_dur={b},atrim=start={a}:end={b},asetpts=PTS-STARTPTS,volume={source_gain}[s{i}]")
+                filters.append(f"[s{i}][m{i}]amix=inputs=2:duration=longest:normalize=0,alimiter=limit=.95:latency=1[a{i}]")
+            else:
+                filters.append(f"[m{i}]anull[a{i}]")
             inputs.append(f"[a{i}]")
-    filters.append("".join(inputs) + f"concat=n={len(clips)}:v=1:a={int(audio)}[v]" + ("[a]" if audio else ""))
+        elif audio:
+            filters.append(f"[0:a:0]atrim=start={a}:end={b},asetpts=PTS-STARTPTS,volume={source_gain}[a{i}]")
+            inputs.append(f"[a{i}]")
+    filters.append("".join(inputs) + f"concat=n={len(clips)}:v=1:a={int(has_audio)}[v]" + ("[a]" if has_audio else ""))
     args = ["ffmpeg", "-nostdin", "-y", "-hide_banner", "-threads", "2", "-i", str(source),
             ]
     if subtitle_path is not None:
         args += ["-f", "srt", "-i", str(subtitle_path)]
+    if music_path is not None:
+        args += ["-i", str(music_path)]
     args += ["-filter_complex_threads", "2", "-filter_complex", ";".join(filters), "-map", "[v]"]
-    if audio:
+    if has_audio:
         args += ["-map", "[a]", "-c:a", "aac", "-b:a", "160k"]
     if subtitle_path is not None:
         args += ["-map", "1:0", "-c:s", "mov_text", "-disposition:s:0", "default"]

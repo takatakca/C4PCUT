@@ -18,3 +18,8 @@
 - Scene editing CI 45921202768 and timeline CI 45921157245 passed.
 - Added SRT validation, import, caption lane, source overlay, text editing, history, trim-aware subtitle remapping, MP4 selectable subtitles and SRT export.
 - Added optional local Faster Whisper adapter; no automatic downloads or hosted AI. Model inference not tested by standard CI. New caption tests pending.
+
+## Music milestone
+- Caption CI 45921488435 was in progress at start of this increment.
+- Added local bounded audio import, normalized WAV, source/music transient analysis, approximate tempo, waveform and markers, beat-derived replacement cuts, independent gains and FFmpeg mix with short-track padding.
+- Added synthetic onset and mix tests. New CI pending. No claims of trained beat tracking or mixed live preview.

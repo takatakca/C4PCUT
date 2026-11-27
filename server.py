@@ -9,6 +9,7 @@ import threading
 from urllib.parse import urlsplit
 import engine
 import captions
+import music
 import os
 import sys
 
@@ -97,6 +98,33 @@ class Handler(BaseHTTPRequestHandler):
                     raise
                 JOBS[job_id] = {"folder": folder, "metadata": metadata}
                 return self.reply({"id": job_id, **metadata})
+            if path.startswith("/api/music/import/"):
+                job_id = path.split("/")[-1]
+                job = JOBS[job_id]
+                if not 0 < size <= music.MAX_MUSIC_BYTES:
+                    raise ValueError("Maximum music upload is 64 MB")
+                raw = job["folder"] / "music-upload.media"
+                # A separate immutable version keeps previous state safe if
+                # normalization fails; only one music track per active job.
+                temp_music = job["folder"] / "music-pending.wav"
+                try:
+                    with raw.open("wb") as out:
+                        remaining = size
+                        while remaining:
+                            chunk = self.rfile.read(min(remaining,1024*1024))
+                            if not chunk:
+                                raise ValueError("Incomplete music upload")
+                            out.write(chunk)
+                            remaining -= len(chunk)
+                    duration = job["metadata"]["duration"]
+                    music.normalize(raw, temp_music, duration)
+                    data = music.analyze(temp_music, duration)
+                    temp_music.replace(job["folder"] / "music.wav")
+                    job["music_analysis"] = data
+                    return self.reply(data)
+                finally:
+                    raw.unlink(missing_ok=True)
+                    temp_music.unlink(missing_ok=True)
             if not 0 < size <= 262144:
                 raise ValueError("Invalid request size")
             payload = json.loads(self.rfile.read(size))
@@ -124,17 +152,45 @@ class Handler(BaseHTTPRequestHandler):
                 duration = job["metadata"]["duration"]
                 cues = [{**c, "end": min(c["end"], duration)} for c in cues if c["start"] < duration]
                 return self.reply({"cues": captions.validate(cues, duration)})
+            if path == "/api/music/analyze":
+                use_music = payload.get("use_music", False)
+                if type(use_music) is not bool:
+                    raise ValueError("Invalid music selection")
+                if use_music:
+                    return self.reply(job["music_analysis"])
+                if not job["metadata"]["audio"]:
+                    return self.reply({"error": "No source audio to analyze"}, 400)
+                data = music.analyze(source, job["metadata"]["duration"])
+                job["source_music_analysis"] = data
+                return self.reply(data)
+            if path == "/api/music/cuts":
+                use_music = payload.get("use_music", False)
+                if type(use_music) is not bool:
+                    raise ValueError("Invalid music selection")
+                data = job["music_analysis" if use_music else "source_music_analysis"]
+                if not data["beats"]:
+                    return self.reply({"error": "No usable audio onsets found"}, 400)
+                job["clips"] = music.beat_cuts(job["metadata"]["duration"], data["beats"], payload.get("interval", 2))
+                return self.reply({"clips": job["clips"]})
             if path == "/api/render":
                 selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}))
                 cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
                 mapped = captions.remap(cues, selected)
+                use_music = payload.get("use_music", False)
+                if type(use_music) is not bool:
+                    raise ValueError("Invalid music selection")
+                music_path = job["folder"] / "music.wav" if use_music else None
+                if music_path is not None and not music_path.is_file():
+                    raise ValueError("Import music first")
+                music_gain = music.validate_gain(payload.get("music_gain", .35))
+                source_gain = music.validate_gain(payload.get("source_gain", 1))
                 temp = job["folder"] / "rendering.mp4"
                 subtitle = job["folder"] / "rendering.srt"
                 exported_srt = job["folder"] / "export.srt"
                 try:
                     if mapped:
                         subtitle.write_text(captions.to_srt(mapped), encoding="utf-8")
-                    engine.render(source, temp, selected, job["metadata"]["audio"], subtitle if mapped else None)
+                    engine.render(source, temp, selected, job["metadata"]["audio"], subtitle if mapped else None, music_path, music_gain, source_gain)
                     temp.replace(job["folder"] / "export.mp4")
                     if mapped:
                         subtitle.replace(exported_srt)

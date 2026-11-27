@@ -3,6 +3,10 @@ const $ = id => document.getElementById(id);
 const commands = ["project = import_media()", "metadata = probe_media(project)", "scenes = detect_scenes(project)", "timeline = build_timeline(scenes)", "render(selected_clips)"];
 let token, job, clips = [], selected = new Set(), current = -1, busy = false, objectURL;
 let visuals = new Map(), history = [], future = [], edits = {}, cues = [], activeCue = -1;
+let musicData=null, sourceBeats=null, musicName="";
+function beatData(){return $("use-music").checked?musicData:sourceBeats;}
+function resetMusic(){musicData=null;sourceBeats=null;musicName="";$("use-music").checked=false;$("music-gain").value=.35;$("source-gain").value=1;}
+function musicStatus(){const data=beatData();$("beat-info").textContent=data?data.beats.length+" detected onsets"+(data.estimated_bpm?" · ~"+data.estimated_bpm+" BPM estimate":""):"No beat analysis";}
 function snapshot(){return {selected:[...selected],edits:JSON.parse(JSON.stringify(edits)),cues:JSON.parse(JSON.stringify(cues))};}
 function hideExports(){$("download").hidden=true;$("download-srt").hidden=true;}
 function edited(c){return edits[c.id]||c;}
@@ -24,7 +28,7 @@ function waveform(peaks){
 }
 const code = $("code");
 commands.forEach(cmd => { const li = document.createElement("li"); li.textContent = cmd; code.append(li); });
-const tracks = [["V3  EFFECTS","effect"],["V2  CAPTIONS","caption"],["V1  VIDEO","video"],["A1  SOURCE AUDIO","audio"],["A2  MUSIC","reserved"]];
+const tracks = [["V3  EFFECTS","effect"],["V2  CAPTIONS","caption"],["V1  VIDEO","video"],["A1  SOURCE AUDIO","audio"],["A2  MUSIC","music"]];
 function log(message, error=false) {
   const div = document.createElement("div");
   div.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
@@ -42,6 +46,8 @@ function updateButtons() {
   $("undo").disabled=busy||!history.length;$("redo").disabled=busy||!future.length;
   for(const id of ["trim-in","trim-out","effect","apply-edit","reset-edit"])$(id).disabled=busy||current<0;
   $("srt-file").disabled=busy||!job;$("transcribe").disabled=busy||!job?.audio;$("clear-captions").disabled=busy||!cues.length;$("caption-text").disabled=busy||activeCue<0;$("apply-caption").disabled=busy||activeCue<0;
+  $("music-file").disabled=busy||!job;$("use-music").disabled=busy||!musicData;$("music-gain").disabled=busy||!$("use-music").checked;$("source-gain").disabled=busy||!job?.audio;
+  $("detect-beats").disabled=busy||!job||(!job.audio&&!$("use-music").checked);$("beat-interval").disabled=busy||!beatData()?.beats.length;$("beat-cut").disabled=busy||!beatData()?.beats.length;musicStatus();
   $("status").textContent = busy ? "● PROCESSING" : "● READY";
 }
 async function request(path, body, raw=false) {
@@ -62,7 +68,15 @@ function drawTimeline() {
     const row=document.createElement("div");row.className="track";
     const title=document.createElement("span");title.textContent=label;row.append(title);
     const lane=document.createElement("div");lane.className="lane";row.append(lane);
-    if(kind==="caption"){
+    if(kind==="music"){
+      lane.classList.add("music-lane");
+      const data=beatData();
+      if(data){
+        if($("use-music").checked&&data.peaks.length)lane.append(waveform(data.peaks));
+        data.beats.forEach(t=>{const marker=document.createElement("span");marker.className="beat-marker";marker.style.left=(t/job.duration*100)+"%";marker.title=format(t);lane.append(marker);});
+      }
+      const label=document.createElement("span");label.className="music-label";label.textContent=$("use-music").checked?musicName:data?"Source audio onset guide":"Import music or analyze source audio";lane.append(label);
+    }else if(kind==="caption"){
       lane.classList.add("caption-lane");
       if(!cues.length){const msg=document.createElement("span");msg.className="empty";msg.textContent="Import SRT or generate local AI captions";lane.append(msg);}
       cues.forEach((cue,i)=>{const item=document.createElement("button");item.className="caption-block"+(i===activeCue?" selected":"");item.style.left=(cue.start/job.duration*100)+"%";item.style.width=((cue.end-cue.start)/job.duration*100)+"%";item.textContent=cue.text;item.title=cue.text;item.disabled=busy;item.addEventListener("click",()=>{activeCue=i;$("video").currentTime=cue.start;refreshCaption();drawTimeline();connect(3,item);});lane.append(item);});
@@ -115,7 +129,7 @@ async function action(fn){
 $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)return;action(async()=>{
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
   step(0);log("Importing "+file.name);const result=await request("/api/import",file,true);
-  job=result;clips=[];cues=[];activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
+  job=result;resetMusic();clips=[];cues=[];activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
   if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;
   $("format").textContent=job.width+" × "+job.height;step(1,true);log("Media verified · "+format(job.duration));
 });$("file").value="";});
@@ -129,7 +143,7 @@ $("analyze").addEventListener("click",()=>action(async()=>{
 }));
 $("render").addEventListener("click",()=>action(async()=>{
   step(4);hideExports();log("Rendering "+selected.size+" selected scenes…");
-  const result=await request("/api/render",{id:job.id,clips:[...selected],edits,cues});step(4,true);log("MP4 export complete");$("download").href=result.url;$("download").hidden=false;if(result.captions_url){$("download-srt").href=result.captions_url;$("download-srt").hidden=false;}connect(4,$("download"));
+  const result=await request("/api/render",{id:job.id,clips:[...selected],edits,cues,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)});step(4,true);log("MP4 export complete");$("download").href=result.url;$("download").hidden=false;if(result.captions_url){$("download-srt").href=result.captions_url;$("download-srt").hidden=false;}connect(4,$("download"));
 }));
 $("video").addEventListener("timeupdate",()=>{$("time").textContent=format($("video").currentTime);updatePlayhead();updateCaptionOverlay();});
 $("undo").addEventListener("click",()=>restore(history,future));
@@ -151,3 +165,27 @@ $("srt-file").addEventListener("change",()=>{const file=$("srt-file").files[0];$
 $("transcribe").addEventListener("click",()=>action(async()=>{log("Running local speech recognition…");const result=await request("/api/transcribe",{id:job.id});installCues(result.cues);}));
 $("clear-captions").addEventListener("click",()=>{if(!busy)installCues([]);});
 $("apply-caption").addEventListener("click",()=>{if(busy||activeCue<0)return;const text=$("caption-text").value.trim();if(!text){log("Caption text cannot be empty",true);return;}remember();cues[activeCue]={...cues[activeCue],text};hideExports();drawTimeline();log("Caption text updated");});
+
+$("music-file").addEventListener("change",()=>{const file=$("music-file").files[0];$("music-file").value="";if(!file)return;action(async()=>{
+  if(file.size>64*1024*1024)throw new Error("Maximum music upload is 64 MB");
+  log("Decoding music and detecting audio onsets…");
+  const result=await request("/api/music/import/"+job.id,file,true);musicData=result;musicName=file.name;$("use-music").checked=true;hideExports();drawTimeline();log(result.beats.length+" music onsets detected");
+});});
+$("use-music").addEventListener("change",()=>{hideExports();drawTimeline();});
+for(const id of ["music-gain","source-gain"])$(id).addEventListener("input",hideExports);
+$("detect-beats").addEventListener("click",()=>action(async()=>{
+  log("Analyzing audio transients…");const use_music=$("use-music").checked;
+  const result=await request("/api/music/analyze",{id:job.id,use_music});if(use_music)musicData=result;else sourceBeats=result;
+  drawTimeline();log(result.beats.length+" onset markers available");
+}));
+$("beat-cut").addEventListener("click",()=>{
+  if(busy||!beatData()?.beats.length)return;
+  if(clips.length&&!window.confirm("Replace existing scene cuts, trims, and effects? Captions and music stay."))return;
+  action(async()=>{
+    log("Building a new cut sequence from detected onsets…");hideExports();
+    const result=await request("/api/music/cuts",{id:job.id,use_music:$("use-music").checked,interval:Number($("beat-interval").value)});
+    clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];edits={};current=-1;drawTimeline();
+    try{const result=await request("/api/visuals",{id:job.id});visuals=new Map(result.visuals.map(v=>[v.id,v]));}catch(e){log("Visual extraction failed: "+e.message,true);}
+    drawTimeline();log(clips.length+" beat-based segments created");connect(3,$("clip-0"));
+  });
+});
