@@ -88,3 +88,6 @@
 
 ## Commercial catalog preflight
 - PR #10 passed CI and merged. Draft disabled V1-compatible product/plan/price specification, read-only conflict preflight and tests implemented. Latest CI pending. No actual product registration or live billing; V1 integration and worker isolation remain open.
+
+## Workspace capabilities
+- Optional administrator-configured resource and feature restrictions enforced server-side; main/clipper render checks before accounting, original-resolution guard, session capability metadata. Tests added, CI pending. Commercial per-plan allocation and signed subscription-to-policy mapping not implemented. No real billing or deployment.

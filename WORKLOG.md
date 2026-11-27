@@ -116,3 +116,7 @@
 ## Commercial catalog preflight
 - PR #10 CI 45934647078 passed; merged at 697d3a89d2ece60fd831594cec3ced2c7e252385.
 - Reviewed actual V1 product schema and Growth billing policy, release rules and concurrent work. Added draft catalog builder, read-only gated preflight, conflict detection and mock tests. No V1 source or live database writes, SKU registration, Stripe price or checkout. Latest CI pending.
+
+## Configurable workspace capability policy
+- PR #11 preflight CI 45936131781 still running at start; no unverified merge.
+- Added opt-in workspace capabilities for resolution (including original), render duration, quality, project count, and selected features; server applies to both render paths before quota reservation. Session exposes policy; existing download/delete preserved. Added HTTP and validation tests. No automatic Free/Standard/Pro mapping, billing, V1 changes or public deployment. CI pending.
