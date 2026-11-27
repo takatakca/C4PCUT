@@ -82,3 +82,6 @@
 
 ## Private grant registry reference
 - PR #9 passed CI and merged. Optional operator-managed local access registry with explicit grants, revocation and audit; Node lookup rereads state. Tests added; CI pending. No real customers provisioned. Not authoritative V1 billing, live SSO or production deployment.
+
+## V1 billing adapter candidate
+- Read-only adapter matches observed GrowthSubscription schema with proposed dedicated C4PCUT keys, active period and client checks. Tests added; CI pending. No live lookup, SKU registration or payment verification. Actual V1 wiring, verified subscription lifecycle, plan allowances and deployment remain pending.

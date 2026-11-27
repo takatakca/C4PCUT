@@ -73,3 +73,5 @@ Server-only Node issuer reference: integration/studio-issuer.mjs verifies inject
 The reference issuer validates an explicit, current C4PCUT product grant for every plan, including Free. A disabled Canadian price catalog is validated separately; no plan selection can grant access or initiate payment. Plan quotas remain undecided.
 
 Private grant registry reference: see docs/PRIVATE_GRANTS.md for offline explicit provisioning and revocation, audit history and read-only Node lookup. No actual clients were provisioned and no invoices are generated.
+
+A read-only V1 GrowthSubscription adapter candidate is available in integration/v1-billing-adapter.mjs with explicit rollout flag and dedicated proposed plan keys. It is not connected to live V1 or Stripe; mocked integration tests exercise the contract.
