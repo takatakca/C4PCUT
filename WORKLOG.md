@@ -128,3 +128,7 @@
 ## Editor account and usage panel
 - PR #12 CI 45936556210 passed; merged at 31d8bc5dca953893af9fc90167d3b6f50cd6d09d.
 - Added authenticated plan/capability display, usage meter, manual and idle refresh, visible capability gates and workspace-change reload. Pure UI policy tests added to CI. No commercial allowances, checkout, actual V1 integration or public deployment. Latest CI pending; browser interaction not independently exercised yet.
+
+## Real browser smoke and UI quota guard
+- PR #13 CI 45939512796 passed; merged at 42fb2675dec89d9e3a197199546e69c10040fc39.
+- Added separate Chromium CI job using Playwright, actual local Python server, restricted private workspace and FFmpeg fixture; exercises import/analyze/render/download, blocked features, exhausted quota and project lifecycle. Added UI remaining-quota guard and mutation/refresh serialization, refresh project count. Browser execution pending CI; local GitHub clone blocked by DNS. No live V1/payment/deployment.

@@ -17,9 +17,9 @@ const PlanUI = (() => {
   function usage(data){
     if(!data||data.enabled===false||!Number.isFinite(data.attempted_seconds)||data.attempted_seconds<0)return null;
     const used=data.attempted_seconds,cap=data.limit_seconds;
-    if(cap===null)return {label:used+" s attempted · no cap",ratio:null};
+    if(cap===null)return {label:used+" s attempted · no cap",ratio:null,remaining:null};
     if(!Number.isFinite(cap)||cap<0)return null;
-    return {label:used+" / "+cap+" s attempted · "+Math.max(0,cap-used)+" s remaining",ratio:cap===0?1:Math.min(1,used/cap)};
+    return {label:used+" / "+cap+" s attempted · "+Math.max(0,cap-used)+" s remaining",ratio:cap===0?1:Math.min(1,used/cap),remaining:Math.max(0,cap-used)};
   }
   return Object.freeze({feature,preset,quality,render,usage});
 })();

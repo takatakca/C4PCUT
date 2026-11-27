@@ -18,6 +18,9 @@ test("export policy mirrors permitted edge and render settings",()=>{
 });
 test("usage handles exhausted, zero, unlimited and unavailable caps",()=>{
   assert.equal(ui.usage({attempted_seconds:50,limit_seconds:100}).ratio,.5);
+  assert.equal(ui.usage({attempted_seconds:50,limit_seconds:100}).remaining,50);
+  assert.equal(ui.usage({attempted_seconds:150,limit_seconds:100}).remaining,0);
+  assert.equal(ui.usage({attempted_seconds:4,limit_seconds:null}).remaining,null);
   assert.equal(ui.usage({attempted_seconds:150,limit_seconds:100}).ratio,1);
   assert.equal(ui.usage({attempted_seconds:0,limit_seconds:0}).ratio,1);
   assert.equal(ui.usage({attempted_seconds:4,limit_seconds:null}).ratio,null);

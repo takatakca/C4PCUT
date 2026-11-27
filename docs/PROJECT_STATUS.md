@@ -97,3 +97,6 @@
 
 ## Editor account UI
 - PR #12 CI passed and merged. Editor account and usage panel added with refresh and presentation-only gating. Server enforcement unchanged. Pure JS tests added; new CI pending, real browser smoke not yet verified. Live V1 and billing remain unconnected.
+
+## Browser validation
+- PR #13 passed original CI and merged. New real Chromium smoke workflow and editor quota/refresh fixes added. Exact browser CI result pending; no claim of browser pass or production deployment yet.

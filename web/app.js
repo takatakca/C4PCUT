@@ -169,7 +169,7 @@ function connect(line,target){
   const p=document.createElementNS("http://www.w3.org/2000/svg","path");p.setAttribute("d","M"+x+" "+y+" C"+x+" "+(ty-35)+" "+tx+" "+(y+30)+" "+tx+" "+ty);p.setAttribute("stroke","#b48aff");svg.replaceChildren(p);clearTimeout(connectionTimer);connectionTimer=setTimeout(()=>svg.replaceChildren(),2000);
 }
 async function action(fn){
-  if(busy||!token||accountInvalid)return;busy=true;updateButtons();drawTimeline();try{await fn();}catch(e){log(e.message,true);}finally{busy=false;drawTimeline();refreshUsage();}
+  if(busy||accountRefreshing||!token||accountInvalid)return;busy=true;updateButtons();drawTimeline();try{await fn();}catch(e){log(e.message,true);}finally{busy=false;drawTimeline();refreshUsage();}
 }
 $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)return;action(async()=>{
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
@@ -378,7 +378,7 @@ async function refreshUsage(){
 function applyAccountControls(){
   const p=account?.capabilities;
   $("refresh-account").disabled=busy||accountRefreshing;
-  if(!account||accountInvalid){
+  if(!account||accountInvalid||accountRefreshing){
     for(const id of ["file","analyze","render","studio-pack","save-project","open-project","delete-project","transcribe","music-file","use-music","detect-beats","beat-cut","director-plan","director-apply"])$(id).disabled=true;
     return;
   }
@@ -396,8 +396,9 @@ function applyAccountControls(){
   if(p&&projectCount!==null&&projectCount>=p.max_projects)$("file").disabled=true;
   const seconds=clips.filter(c=>selected.has(c.id)).reduce((a,c)=>a+edited(c).end-edited(c).start,0);
   const allowed=PlanUI.render(p,clipperSettings(),job,seconds);
-  $("render").disabled ||= !allowed;
-  $("account-message").textContent=!allowed&&selected.size?"Selected export settings exceed this workspace’s capabilities. Choose permitted settings.":p&&projectCount!==null&&projectCount>=p.max_projects?"Project limit reached. Delete an unused project before importing.":"";
+  const quotaExceeded=usageState?.remaining!=null&&Math.ceil(seconds)>usageState.remaining;
+  $("render").disabled ||= !allowed||quotaExceeded;
+  $("account-message").textContent=quotaExceeded&&selected.size?"Selected export exceeds the remaining monthly render quota.":!allowed&&selected.size?"Selected export settings exceed this workspace’s capabilities. Choose permitted settings.":p&&projectCount!==null&&projectCount>=p.max_projects?"Project limit reached. Delete an unused project before importing.":"";
 }
 async function refreshAccount(initial=false){
   if(accountRefreshing||busy)return;
@@ -414,7 +415,8 @@ async function refreshAccount(initial=false){
     $("account-plan").textContent=data.plan?"C4PCUT "+data.plan.toUpperCase():data.workspace?"Private workspace":"Local editor";
     const p=data.capabilities;
     $("account-policy").textContent=p?"Max edge "+p.max_output_edge+" px · "+p.max_render_seconds+" s/export · "+p.max_projects+" projects · "+(p.qualities.join(", ")||"no export quality"):"No additional workspace capability restrictions";
-    if(initial){log(data.workspace?"Private workspace: "+data.workspace:"Local processing engine ready");await refreshProjects();}
+    if(initial)log(data.workspace?"Private workspace: "+data.workspace:"Local processing engine ready");
+    await refreshProjects();
     await refreshUsage();
   }catch(e){
     $("account-plan").textContent="Connection unavailable";$("account-policy").textContent="Refresh account to reconnect";
