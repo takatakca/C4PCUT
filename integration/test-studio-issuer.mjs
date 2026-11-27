@@ -26,3 +26,5 @@ test("reject arbitrary URLs, query strings, unauthorized methods and oversized b
   await assert.rejects(issue({method:"DELETE",target:"/api/session",body:Buffer.alloc(0)}),AccessDenied);
   await assert.rejects(issue({method:"POST",target:"/api/render/cancel",body:Buffer.alloc(1025)}),AccessDenied);
 });
+
+test("logo endpoint exact path and upload bound",async()=>{const issue=createIssuer(defaults),id="a".repeat(32);await issue({method:"GET",target:"/api/logo/"+id,body:Buffer.alloc(0)});await issue({method:"POST",target:"/api/logo/import/"+id,body:Buffer.from("png")});await assert.rejects(issue({method:"POST",target:"/api/logo/import/"+id,body:Buffer.alloc(2*1024*1024+1)}),AccessDenied);});

@@ -168,7 +168,7 @@ def validate_render_budget(preset, framing, duration, quality):
     if dims and max(dims)>=2560 and duration>120:
         raise ValueError("QHD export limited to 120 seconds")
 
-def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None, preset="original", framing="fit", quality="standard", cancel=None, progress=None, title_ass=None, logo_path=None, logo_position="top_right"):
+def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None, preset="original", framing="fit", quality="standard", cancel=None, progress=None, title_ass=None, logo_path=None, logo_position="top_right", logo_size=20, logo_opacity=1, logo_start=0, logo_end=None):
     total=sum(c["end"]-c["start"] for c in clips)
     validate_render_budget(preset,framing,total,quality)
     progress=progress or (lambda value: None)
@@ -223,10 +223,16 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
         if dimensions is None:
             info=probe(source);w,h=info["width"],info["height"]
         else:w,h=dimensions
-        edge=max(2,min(w,h)//5)
-        filters.append(f"[{logo_index}:v:0]scale={edge}:{edge}:force_original_aspect_ratio=decrease,format=rgba[logo]")
+        if type(logo_size) is not int or not 10<=logo_size<=40 or type(logo_opacity) not in (int,float) or not math.isfinite(logo_opacity) or not .1<=logo_opacity<=1:
+            raise ValueError("Invalid logo appearance")
+        if type(logo_start) not in (int,float) or not math.isfinite(logo_start) or not 0<=logo_start<=MAX_DURATION or (logo_end is not None and (type(logo_end) not in (int,float) or not math.isfinite(logo_end) or not logo_start<logo_end<=MAX_DURATION+.000001)):
+            raise ValueError("Invalid logo timing")
+        edge=max(2,int(min(w,h)*logo_size/100))
+        filters.append(f"[{logo_index}:v:0]scale={edge}:{edge}:force_original_aspect_ratio=decrease,format=rgba,colorchannelmixer=aa={logo_opacity:.6f}[logo]")
+        end=min(total,logo_end) if logo_end is not None else total
+        enabled=f"gte(t,{logo_start:.6f})*lt(t,{end:.6f})"
         layer_input="[watermarked]" if has_layers else "[v]"
-        filters.append(f"[joined][logo]overlay=x={x}:y={y}:eof_action=repeat:repeatlast=1{layer_input}")
+        filters.append(f"[joined][logo]overlay=x={x}:y={y}:eof_action=repeat:repeatlast=1:enable='{enabled}'{layer_input}")
     if has_layers:
         stages=[]
         if title_ass is not None:stages.append("ass=filename=titles.ass")

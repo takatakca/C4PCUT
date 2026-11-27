@@ -472,7 +472,7 @@ class Handler(BaseHTTPRequestHandler):
                 selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}),payload.get("order"))
                 title_items=titles.validate(payload.get("titles",[]),job["metadata"]["duration"])
                 logo_asset=job["folder"]/"logo.png"
-                logo_settings=logos.validate(payload.get("logo"),logo_asset.is_file())
+                logo_settings=logos.validate(payload.get("logo"),logo_asset.is_file(),job["metadata"]["duration"])
                 cues = captions.validate(payload.get("cues", []), job["metadata"]["duration"])
                 mapped = captions.remap(cues, selected)
                 caption_mode = captions.validate_mode(payload.get("caption_mode", "soft"))
@@ -503,7 +503,7 @@ class Handler(BaseHTTPRequestHandler):
                         burn=captions.to_ass(mapped,caption_mode) if mapped and caption_mode!="soft" else None
                         engine.render(source,temp,selected,audio,subtitle if mapped and caption_mode=="soft" else None,
                                       music_path,music_gain,source_gain,burn_ass=burn,preset=preset,framing=framing,
-                                      quality=quality,cancel=cancel,progress=progress,title_ass=title_ass,logo_path=logo_asset if logo_settings["enabled"] else None,logo_position=logo_settings["position"])
+                                      quality=quality,cancel=cancel,progress=progress,title_ass=title_ass,logo_path=logo_asset if logo_settings["enabled"] else None,logo_position=logo_settings["position"],logo_size=logo_settings["size"],logo_opacity=logo_settings["opacity"],logo_start=logo_settings["start"],logo_end=logo_settings["end"])
                         if cancel.is_set():
                             raise Cancelled()
                         temp.replace(folder/"export.mp4")

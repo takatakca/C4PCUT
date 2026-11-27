@@ -1,5 +1,6 @@
 """Single bounded PNG watermark asset; never accept user-supplied file paths."""
 import struct
+import math
 from pathlib import Path
 import engine
 
@@ -24,10 +25,18 @@ def normalize(source,target):
     if target.stat().st_size>5*1024*1024:
         raise ValueError("Normalized logo too large")
 
-def validate(value,available):
-    if value is None:return {"enabled":False,"position":"top_right"}
-    if not isinstance(value,dict) or set(value)!={"enabled","position"} or type(value["enabled"]) is not bool or not isinstance(value["position"],str) or value["position"] not in POSITIONS:
+def validate(value,available,duration=600):
+    default={"enabled":False,"position":"top_right","size":20,"opacity":1,"start":0,"end":None}
+    if value is None:return default
+    if not isinstance(value,dict) or not {"enabled","position"}<=set(value) or set(value)-set(default) or type(value["enabled"]) is not bool or not isinstance(value["position"],str) or value["position"] not in POSITIONS:
         raise ValueError("Invalid logo settings")
-    if value["enabled"] and not available:
-        raise ValueError("Import a logo first")
-    return dict(value)
+    result={**default,**value}
+    size,opacity,a,b=(result[k] for k in ("size","opacity","start","end"))
+    if type(size) is not int or not 10<=size<=40 or type(opacity) not in (int,float) or not math.isfinite(opacity) or not .1<=opacity<=1:
+        raise ValueError("Invalid logo size or opacity")
+    if type(a) not in (int,float) or not math.isfinite(a) or not 0<=a<duration:
+        raise ValueError("Invalid logo start")
+    if b is not None and (type(b) not in (int,float) or not math.isfinite(b) or not a<b<=duration+.000001):
+        raise ValueError("Invalid logo end")
+    if result["enabled"] and not available:raise ValueError("Import a logo first")
+    return result
