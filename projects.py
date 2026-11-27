@@ -10,6 +10,7 @@ import engine
 import captions
 import titles
 import logos
+import pip_video
 import music
 import studio_pack
 
@@ -38,7 +39,7 @@ def validate_segments(clips, duration):
         raise ValueError("Incomplete scene coverage")
     return clips
 
-def validate_state(payload, clips, metadata, has_music, has_logo=False):
+def validate_state(payload, clips, metadata, has_music, has_logo=False, pip_meta=None):
     name=clean_name(payload.get("name"))
     selected=payload.get("selected",[])
     edits=payload.get("edits",{})
@@ -69,6 +70,7 @@ def validate_state(payload, clips, metadata, has_music, has_logo=False):
             "cues":captions.validate(payload.get("cues",[]),metadata["duration"]),
             "titles":titles.validate(payload.get("titles",[]),metadata["duration"]),
             "logo":logos.validate(payload.get("logo"),has_logo,metadata["duration"]),
+            "pip":pip_video.validate(payload.get("pip"),pip_meta,metadata["duration"]),
             "caption_mode":captions.validate_mode(payload.get("caption_mode","soft")),
             "use_music":use_music,"music_gain":music.validate_gain(payload.get("music_gain",.35)),
             "source_gain":music.validate_gain(payload.get("source_gain",1)),
@@ -77,12 +79,14 @@ def validate_state(payload, clips, metadata, has_music, has_logo=False):
 def save(job, payload):
     folder=job["folder"]
     clips=validate_segments(job.get("clips",[]),job["metadata"]["duration"])
-    state=validate_state(payload,clips,job["metadata"],(folder/"music.wav").is_file(),(folder/"logo.png").is_file())
+    pip_meta=job.get("pip_meta") if (folder/"pip.mp4").is_file() else None
+    state=validate_state(payload,clips,job["metadata"],(folder/"music.wav").is_file(),(folder/"logo.png").is_file(),pip_meta)
     # Immutable soundtrack copy per saved revision. The current working
     # soundtrack can be replaced without changing the prior saved revision.
     revision=secrets.token_hex(16) if (folder/"music.wav").is_file() else None
     logo_revision=secrets.token_hex(16) if (folder/"logo.png").is_file() else None
-    manifest={"logo_revision":logo_revision,"version":1,"metadata":job["metadata"],"clips":clips,"state":state,"music_revision":revision}
+    pip_revision=secrets.token_hex(16) if pip_meta else None
+    manifest={"pip_revision":pip_revision,"pip_meta":pip_meta,"logo_revision":logo_revision,"version":1,"metadata":job["metadata"],"clips":clips,"state":state,"music_revision":revision}
     raw=json.dumps(manifest,ensure_ascii=False,allow_nan=False).encode("utf-8")
     if len(raw)>MAX_MANIFEST:
         raise ValueError("Project manifest too large")
@@ -92,6 +96,7 @@ def save(job, payload):
             shutil.copyfile(folder/"music.wav",folder/f"saved-{revision}.wav")
         if logo_revision:
             shutil.copyfile(folder/"logo.png",folder/f"saved-logo-{logo_revision}.png")
+        if pip_revision:shutil.copyfile(folder/"pip.mp4",folder/f"saved-pip-{pip_revision}.mp4")
         with tmp.open("wb") as out:
             out.write(raw)
             out.flush()
@@ -103,7 +108,10 @@ def save(job, payload):
             (folder/f"saved-{revision}.wav").unlink(missing_ok=True)
         if logo_revision:
             (folder/f"saved-logo-{logo_revision}.png").unlink(missing_ok=True)
+        if pip_revision:(folder/f"saved-pip-{pip_revision}.mp4").unlink(missing_ok=True)
         raise
+    for old in folder.glob("saved-pip-*.mp4"):
+        if old.name!=f"saved-pip-{pip_revision}.mp4":old.unlink(missing_ok=True)
     for old in folder.glob("saved-logo-*.png"):
         if old.name!=f"saved-logo-{logo_revision}.png":old.unlink(missing_ok=True)
     for old in folder.glob("saved-*.wav"):
@@ -129,7 +137,12 @@ def read(folder):
     logo_revision=data.get("logo_revision")
     if logo_revision is not None and (not isinstance(logo_revision,str) or not ID.fullmatch(logo_revision) or not (folder/f"saved-logo-{logo_revision}.png").is_file()):
         raise ValueError("Missing saved logo")
-    data["state"]=validate_state(data["state"],clips,meta,revision is not None,logo_revision is not None)
+    pip_revision=data.get("pip_revision");pip_meta=data.get("pip_meta")
+    if pip_revision is not None:
+        if not isinstance(pip_revision,str) or not ID.fullmatch(pip_revision) or not (folder/f"saved-pip-{pip_revision}.mp4").is_file() or not isinstance(pip_meta,dict) or type(pip_meta.get("duration")) not in (int,float) or not .1<=pip_meta["duration"]<=30.04:
+            raise ValueError("Invalid saved secondary video")
+    elif pip_meta is not None:raise ValueError("Missing saved secondary revision")
+    data["state"]=validate_state(data["state"],clips,meta,revision is not None,logo_revision is not None,pip_meta)
     return data
 
 def restore(folder):
@@ -158,6 +171,17 @@ def restore(folder):
             tmp.replace(logo)
         finally:tmp.unlink(missing_ok=True)
     else:logo.unlink(missing_ok=True)
+    pip_revision=data.get("pip_revision");asset=folder/"pip.mp4"
+    if pip_revision:
+        tmp=folder/"restore-pip.pending"
+        try:
+            shutil.copyfile(folder/f"saved-pip-{pip_revision}.mp4",tmp)
+            pip_meta=engine.probe(tmp)
+            if pip_meta["audio"] or max(pip_meta["width"],pip_meta["height"])>720 or pip_meta["duration"]>30.04:raise ValueError("Invalid saved secondary video")
+            pip_video.validate(data["state"]["pip"],pip_meta,data["metadata"]["duration"])
+            tmp.replace(asset);result["pip_meta"]=pip_meta
+        finally:tmp.unlink(missing_ok=True)
+    else:asset.unlink(missing_ok=True)
     return result,data["state"]
 
 def list_saved(root):

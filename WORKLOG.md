@@ -178,3 +178,7 @@
 ## Picture-in-picture engine
 - PR #23 CI 45955629025 succeeded and merged at 724599091cf57b3f5e4d758ce179c479ff7e7043. Timed watermark settings verified.
 - Added bounded secondary MP4 normalization, silent output, validated size/corner/source trim/output offset and FFmpeg overlay compositing. Added real timed pixel/duration and malformed-input tests. CI pending. Deliberately engine-only: upload endpoints, saved revision, UI and scoped integration remain outstanding. No fees or live deployment.
+
+## Picture-in-picture editor integration
+- PR #24 CI 45956014705 succeeded and merged at dab39cde067020bc7e7d9891670d1f8635354392.
+- Added scoped upload/download, issuer allowlist, project revision persistence, main render wiring and silent approximate sequence preview. Added actual Chromium import/settings/reopen, private retrieval and saved asset tests. Exact CI pending. One secondary video only; no public deployment or billing.

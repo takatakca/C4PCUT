@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 import engine
 import pip_video
+import projects
 
 class PictureInPictureTests(unittest.TestCase):
     def test_validation(self):
@@ -33,5 +34,12 @@ class PictureInPictureTests(unittest.TestCase):
             self.assertLess(max(pixel(.2)),30)
             self.assertGreater(pixel(.8)[0],180)
             self.assertLess(max(pixel(1.8)),30)
+            folder=root/"project";folder.mkdir();shutil.copyfile(src,folder/"source.media");shutil.copyfile(asset,folder/"pip.mp4")
+            main_meta=engine.probe(src);job={"folder":folder,"metadata":main_meta,"clips":engine.segments(3,[]),"pip_meta":meta}
+            projects.save(job,{"name":"PiP","selected":[0],"pip":settings})
+            (folder/"pip.mp4").unlink()
+            restored,state=projects.restore(folder)
+            self.assertEqual(state["pip"],settings);self.assertEqual(restored["pip_meta"],meta)
+            self.assertEqual((folder/"pip.mp4").read_bytes(),asset.read_bytes())
             raw.write_bytes(b"not an MP4")
             with self.assertRaises(ValueError):pip_video.normalize(raw,root/"invalid.mp4")
