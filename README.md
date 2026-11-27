@@ -81,3 +81,5 @@ Commercial catalog preflight candidate checks the proposed disabled C4PCUT produ
 Optional private workspace capability profiles constrain export size/quality/duration, projects and selected AI/media features, before render quota reservation. No commercial plan allowances are assigned yet; see docs/DEPLOYMENT.md.
 
 Gateway protocol v3 binds the validated plan to explicit server-managed profiles and intersects with workspace restrictions. Shared monthly ledger prevents quota reset on plan change. No commercial allowance defaults or live V1 wiring.
+
+Editor account panel shows the authenticated plan or local/private mode, configured capability limits, monthly render-attempt usage, and disabled unavailable controls. Refresh manually or every 30 seconds while visible/idle. Server remains authoritative; no checkout or subscription management is simulated.

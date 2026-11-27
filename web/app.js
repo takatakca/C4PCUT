@@ -4,13 +4,15 @@ const commands = ["project = import_media()", "metadata = probe_media(project)",
 let token, job, clips = [], selected = new Set(), current = -1, busy = false, objectURL, sourceMime="", activeRender=null, studioBrief=null;
 let visuals = new Map(), history = [], future = [], edits = {}, cues = [], activeCue = -1;
 let musicData=null, sourceBeats=null, musicName="", directorPlan=null;
+let account=null, accountRefreshing=false, accountInvalid=false, projectCount=null, usageState=null;
+const canFeature=name=>!!account&&!accountInvalid&&PlanUI.feature(account.capabilities,name);
 let clipBatch=null, clipCandidates=[], clipDownloads=new Map();
 function clearClipper(){clipBatch=null;clipCandidates=[];clipDownloads.clear();$("clipper-results").replaceChildren();$("clipper-status").textContent="No current suggestions";}
 function clipperButtons(){
-  $("clipper-suggest").disabled=busy||!clips.length;
-  $("clipper-render-all").disabled=busy||!clipBatch||!clipCandidates.length;
-  for(const id of ["clipper-target","clipper-count","clipper-style"])$(id).disabled=busy;
-  $("clipper-results").querySelectorAll("button").forEach(b=>b.disabled=busy);
+  $("clipper-suggest").disabled=busy||!clips.length||!canFeature("clipper");
+  $("clipper-render-all").disabled=busy||!clipBatch||!clipCandidates.length||!canFeature("clipper");
+  for(const id of ["clipper-target","clipper-count","clipper-style"])$(id).disabled=busy||!canFeature("clipper");
+  $("clipper-results").querySelectorAll("button").forEach(b=>b.disabled=busy||!canFeature("clipper"));
 }
 function clipperSettings(){return {cues,caption_mode:$("caption-mode").value,preset:$("export-preset").value,framing:$("export-framing").value,quality:$("export-quality").value,use_music:$("use-music").checked,music_gain:Number($("music-gain").value),source_gain:Number($("source-gain").value)};}
 function drawClipper(){
@@ -89,9 +91,11 @@ function updateButtons() {
   $("srt-file").disabled=busy||!job;$("transcribe").disabled=busy||!job?.audio;$("clear-captions").disabled=busy||!cues.length;$("caption-mode").disabled=busy||!cues.length;$("caption-text").disabled=busy||activeCue<0;$("apply-caption").disabled=busy||activeCue<0;
   $("music-file").disabled=busy||!job;$("use-music").disabled=busy||!musicData;$("music-gain").disabled=busy||!$("use-music").checked;$("source-gain").disabled=busy||!job?.audio;
   $("detect-beats").disabled=busy||!job||(!job.audio&&!$("use-music").checked);$("beat-interval").disabled=busy||!beatData()?.beats.length;$("beat-cut").disabled=busy||!beatData()?.beats.length;musicStatus();
-  $("status").textContent = busy ? "● PROCESSING" : "● READY";
+  applyAccountControls();
+  $("status").textContent = accountInvalid?"● RECONNECT":busy ? "● PROCESSING" : "● READY";
 }
 async function request(path, body, raw=false) {
+  if(!token||accountInvalid)throw new Error("Reconnect before editing");
   const response = await fetch(path,{method:"POST",headers:{"X-C4PCUT-Token":token,"Content-Type":raw?"application/octet-stream":"application/json"},body:raw?body:JSON.stringify(body)});
   const result = await response.json(); if(!response.ok) throw new Error(result.error); return result;
 }
@@ -165,12 +169,12 @@ function connect(line,target){
   const p=document.createElementNS("http://www.w3.org/2000/svg","path");p.setAttribute("d","M"+x+" "+y+" C"+x+" "+(ty-35)+" "+tx+" "+(y+30)+" "+tx+" "+ty);p.setAttribute("stroke","#b48aff");svg.replaceChildren(p);clearTimeout(connectionTimer);connectionTimer=setTimeout(()=>svg.replaceChildren(),2000);
 }
 async function action(fn){
-  if(busy)return;busy=true;updateButtons();drawTimeline();try{await fn();}catch(e){log(e.message,true);}finally{busy=false;drawTimeline();refreshUsage();}
+  if(busy||!token||accountInvalid)return;busy=true;updateButtons();drawTimeline();try{await fn();}catch(e){log(e.message,true);}finally{busy=false;drawTimeline();refreshUsage();}
 }
 $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)return;action(async()=>{
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
   step(0);log("Importing "+file.name);const result=await request("/api/import",file,true);
-  job=result;setStudioBrief(null);sourceMime=["video/mp4","video/quicktime","video/webm"].includes(file.type)?file.type:"";$("saved-projects").value="";clearDirector();clearClipper();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
+  job=result;if(projectCount!==null)projectCount++;setStudioBrief(null);sourceMime=["video/mp4","video/quicktime","video/webm"].includes(file.type)?file.type:"";$("saved-projects").value="";clearDirector();clearClipper();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
   if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;$("project-name").value=file.name.slice(0,160);
   $("format").textContent=job.width+" × "+job.height;step(1,true);log("Media verified · "+format(job.duration));
 });$("file").value="";});
@@ -209,7 +213,7 @@ $("ticks").addEventListener("click",e=>{if(!job)return;const b=$("ticks").getBou
 window.addEventListener("resize",updatePlayhead);
 $("tracks").addEventListener("scroll",updatePlayhead);
 $("file").disabled=true;drawTimeline();
-fetch("/api/session").then(r=>r.json()).then(data=>{token=data.token;updateButtons();log(data.workspace?"Private workspace: "+data.workspace:"Local processing engine ready");refreshProjects().catch(e=>log(e.message,true));refreshUsage();}).catch(()=>log("Unable to connect to local engine",true));
+refreshAccount(true);
 
 function refreshCaption(){$("caption-text").value=cues[activeCue]?.text||"";}
 function updateCaptionOverlay(){
@@ -309,6 +313,7 @@ for(const id of ["export-preset","export-framing","export-quality"])$(id).addEve
 
 async function refreshProjects(){
   const data=await request("/api/projects/list",{});
+  projectCount=data.projects.length;
   const select=$("saved-projects"), prior=select.value;
   select.replaceChildren(new Option("Saved projects",""));
   for(const p of data.projects){const opt=new Option(p.name+(p.saved?" · "+format(p.duration):" (delete only)"),p.id);opt.dataset.saved=String(p.saved);select.add(opt);}
@@ -357,7 +362,69 @@ $("delete-project").addEventListener("click",()=>{
 
 $("cancel-render").addEventListener("click",async()=>{if(!activeRender)return;try{const state=await request("/api/render/cancel",{render_id:activeRender});$("render-status").textContent=state.status;log("Render cancellation requested");}catch(e){log(e.message,true);}});
 
-async function refreshUsage(){try{const response=await fetch("/api/usage");if(!response.ok)throw new Error("Usage unavailable");const data=await response.json();$("usage-summary").textContent=data.enabled===false?"Usage unavailable":data.month+" · "+data.attempted_seconds+"s attempted"+(data.limit_seconds===null?" · no cap":" / "+data.limit_seconds+"s cap");}catch(e){$("usage-summary").textContent="Usage unavailable";}}
+async function refreshUsage(){
+  if(accountInvalid||!account)return;
+  try{
+    const response=await fetch("/api/usage",{cache:"no-store"});if(!response.ok)throw new Error("Usage unavailable");
+    const data=await response.json();if(accountInvalid)return;
+    usageState=PlanUI.usage(data);
+    $("usage-summary").textContent=usageState?data.month+" · "+usageState.label:"Usage unavailable";
+    $("usage-meter").hidden=!usageState||usageState.ratio===null;
+    if(!$("usage-meter").hidden)$("usage-meter").value=100*usageState.ratio;
+  }catch(e){usageState=null;$("usage-summary").textContent="Usage unavailable";$("usage-meter").hidden=true;}
+  updateButtons();
+}
+
+function applyAccountControls(){
+  const p=account?.capabilities;
+  $("refresh-account").disabled=busy||accountRefreshing;
+  if(!account||accountInvalid){
+    for(const id of ["file","analyze","render","studio-pack","save-project","open-project","delete-project","transcribe","music-file","use-music","detect-beats","beat-cut","director-plan","director-apply"])$(id).disabled=true;
+    return;
+  }
+  for(const option of $("export-preset").options)option.disabled=!PlanUI.preset(p,option.value,job);
+  for(const option of $("export-quality").options)option.disabled=!PlanUI.quality(p,option.value);
+  for(const option of $("caption-mode").options)option.disabled=option.value!=="soft"&&!canFeature("animated_captions");
+  $("director-provider").querySelector('option[value="ollama"]').disabled=!canFeature("ollama");
+  $("director-plan").disabled ||= $("director-provider").value==="ollama"&&!canFeature("ollama");
+  $("director-apply").disabled ||= $("director-provider").value==="ollama"&&!canFeature("ollama");
+  $("studio-pack").disabled ||= !canFeature("studio_pack");
+  $("transcribe").disabled ||= !canFeature("transcribe");
+  for(const id of ["music-file","detect-beats","beat-cut","beat-interval","music-gain"])$(id).disabled ||= !canFeature("music");
+  // A downgraded user can still uncheck a saved soundtrack to make a permitted export.
+  $("use-music").disabled=busy||(!musicData&&!$("use-music").checked)||(!canFeature("music")&&!$("use-music").checked);
+  if(p&&projectCount!==null&&projectCount>=p.max_projects)$("file").disabled=true;
+  const seconds=clips.filter(c=>selected.has(c.id)).reduce((a,c)=>a+edited(c).end-edited(c).start,0);
+  const allowed=PlanUI.render(p,clipperSettings(),job,seconds);
+  $("render").disabled ||= !allowed;
+  $("account-message").textContent=!allowed&&selected.size?"Selected export settings exceed this workspace’s capabilities. Choose permitted settings.":p&&projectCount!==null&&projectCount>=p.max_projects?"Project limit reached. Delete an unused project before importing.":"";
+}
+async function refreshAccount(initial=false){
+  if(accountRefreshing||busy)return;
+  if(accountInvalid){window.location.reload();return;}
+  accountRefreshing=true;updateButtons();
+  try{
+    const response=await fetch("/api/session",{cache:"no-store"});if(!response.ok)throw new Error("Session unavailable");
+    const data=await response.json();if(typeof data.token!=="string"||!data.token)throw new Error("Session unavailable");
+    if(account&&(account.workspace!==data.workspace||token!==data.token)){
+      // Never retain another workspace's media in a newly authenticated editor.
+      accountInvalid=true;token=null;window.location.reload();return;
+    }
+    account=data;token=data.token;
+    $("account-plan").textContent=data.plan?"C4PCUT "+data.plan.toUpperCase():data.workspace?"Private workspace":"Local editor";
+    const p=data.capabilities;
+    $("account-policy").textContent=p?"Max edge "+p.max_output_edge+" px · "+p.max_render_seconds+" s/export · "+p.max_projects+" projects · "+(p.qualities.join(", ")||"no export quality"):"No additional workspace capability restrictions";
+    if(initial){log(data.workspace?"Private workspace: "+data.workspace:"Local processing engine ready");await refreshProjects();}
+    await refreshUsage();
+  }catch(e){
+    $("account-plan").textContent="Connection unavailable";$("account-policy").textContent="Refresh account to reconnect";
+    $("usage-summary").textContent="Usage unavailable";$("usage-meter").hidden=true;
+    accountInvalid=true;token=null;log("Account authorization unavailable",true);
+  }finally{accountRefreshing=false;updateButtons();}
+}
+$("refresh-account").addEventListener("click",()=>refreshAccount());
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!busy&&account)refreshAccount();});
+setInterval(()=>{if(!document.hidden&&!busy&&account&&!accountInvalid)refreshAccount();},30000);
 
 function setStudioBrief(brief){
   studioBrief=brief;
