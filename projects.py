@@ -9,6 +9,7 @@ from pathlib import Path
 import engine
 import captions
 import music
+import studio_pack
 
 ID = re.compile(r"[a-f0-9]{32}")
 MAX_PROJECTS = 8
@@ -58,7 +59,10 @@ def validate_state(payload, clips, metadata, has_music):
     mime=payload.get("source_mime","video/mp4")
     if not isinstance(mime,str) or mime not in set(MIMES.values()) | {""}:
         raise ValueError("Invalid source MIME")
-    return {"name":name,"selected":selected,"edits":edits,"source_mime":mime,
+    brief=payload.get("studio_brief")
+    if brief is not None:
+        brief=studio_pack.parse_brief(brief)
+    return {"name":name,"selected":selected,"edits":edits,"source_mime":mime,"studio_brief":brief,
             "cues":captions.validate(payload.get("cues",[]),metadata["duration"]),
             "caption_mode":captions.validate_mode(payload.get("caption_mode","soft")),
             "use_music":use_music,"music_gain":music.validate_gain(payload.get("music_gain",.35)),

@@ -16,6 +16,7 @@ import projects
 import owner_auth
 import usage
 import workspaces
+import studio_pack
 from render_queue import RenderQueue, Cancelled
 from contextlib import nullcontext
 import re
@@ -211,6 +212,11 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < size <= 262144:
                 raise ValueError("Invalid request size")
             payload = json.loads(self.rfile.read(size))
+            if path == "/api/studio/import-pack":
+                if size>studio_pack.MAX_PACK_BYTES:
+                    raise ValueError("Studio pack too large")
+                brief=studio_pack.parse_pack(payload)
+                return self.reply({"brief":brief,"director_prompt":studio_pack.director_prompt(brief)})
             if path == "/api/projects/list":
                 return self.reply({"projects":projects.list_saved(Path(self.storage)), "persistent":self.server.persistent})
             job_id = payload["id"]

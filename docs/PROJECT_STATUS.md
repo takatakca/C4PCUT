@@ -63,3 +63,6 @@
 
 ## Private workspace isolation
 - Optional private multi-workspace namespaces with admin-provisioned credentials, distinct project stores, usage ledgers, CSRF tokens and scoped queue controls. Cross-workspace HTTP tests added; new CI pending. Shared worker/process and volume remain; actual TAKATAK identity/entitlements, storage quotas and public deployment not implemented.
+
+## TAKATAK Studio pack interoperability
+- Workspace isolation CI passed and PR #6 merged. Offline import of verified V1 production_request_pack v1 now implemented with creative-field whitelist, attachment to existing project, editable Director prompt and persisted brief. Identity and permissions remain from the authenticated C4PCUT workspace. Live SSO, product entitlements and payments remain pending. New CI pending.

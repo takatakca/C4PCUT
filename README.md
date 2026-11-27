@@ -60,3 +60,6 @@ The owner-local SQLite ledger records rounded requested output seconds for main 
 
 ## Private workspace mode
 Optional administrator-provisioned workspace configuration gives each workspace separate project directories, in-memory job maps, CSRF tokens, and SQLite usage ledgers. Render status and cancellation are workspace-scoped; one shared worker and mutation lock protect host capacity. Credentials are workspace slug + unique high-entropy password over the private SSH tunnel. This is not public multi-tenant hosting or live TAKATAK login. The default single-owner mode is unchanged. See docs/DEPLOYMENT.md for setup and limits.
+
+## Import a TAKATAK Studio creative brief
+With footage imported, attach a TAKATAKSTUDIO production_request_pack v1 JSON (maximum 16 KiB). Review the populated project name and Director prompt; explicitly save to keep the whitelisted creative brief with the project. No jobs, identities, billing permissions, remote URLs or publishing instructions are imported. No AI runs until explicitly requested. This is offline interoperability, not SSO.

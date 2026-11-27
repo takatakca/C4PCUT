@@ -80,3 +80,7 @@
 - Usage CI 45930401547 passed; PR #5 merged at eefbb5f108b9fbbc0f34b822a805b0cf2019c22f.
 - Added optional explicit workspace configuration, server-selected project/media namespace, per-workspace CSRF and SQLite usage, scoped render status/cancel and private Compose overlay. Added HTTP regression tests for cross-workspace access and configuration traversal. New CI pending.
 - Default owner mode unchanged; no changes to takatak-v1, real Studio SSO, billing or public deployment. Shared process/volume remains a limitation.
+
+## Studio creative pack interoperability
+- Workspace CI 45933244482 passed; PR #6 merged at 5a4939941baae22824ddeb37a62d3f901adb2538.
+- Read V1 main 09c6f21f42d0ee39385ec5e11c389fba6a191205 workspace permission gate and actual Studio production_request_pack v1 contract. Added local creative-only pack parsing, authenticated import endpoint, explicit attachment, saved manifest field and regression tests. No V1 writes or SSO claims. Latest CI pending.
