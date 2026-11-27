@@ -163,3 +163,9 @@
 ## Output title track
 - PR #20 combined CI 45949380876 succeeded; merged at 339edcdad602b7b95830a44611e8bca32e44846a.
 - Added bounded independent output-time title layer, fixed ASS styles, main render compositing with optional soft or burned captions, project persistence, undo/redo, title controls and approximate sequence preview. Added real pixel/soft-caption coexistence and project tests. New CI pending. No video/image overlay or production deployment; no new fees.
+
+## Graphic titles and lower thirds
+- PR #21 CI 45949703852 succeeded; merged at 52639081af7e18f0e6c6ed1356081d53104206e7.
+- Added fixed classic/purple/dark title presets and lower-left third position, persisted style with backward-compatible default, preview and real ASS box rendering. Added pixel-level color test and actual Chromium title creation/playback/reopen scenario. CI pending. No uploaded graphic/video overlay or production launch; no fees.
+
+- CI 45953983587: Chromium passed, 61 of 62 Python tests passed; lower-third render completed but frame extraction failed using FFmpeg seek string `.5`. Corrected to `0.5`; rerun required for colored-pixel assertion.

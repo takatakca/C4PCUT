@@ -50,20 +50,20 @@ $("video").addEventListener("waiting",pauseMonitor);
 $("video").addEventListener("ratechange",()=>syncMonitor(true));
 $("video").addEventListener("volumechange",()=>{if(sequence)$("monitor-audio").muted=$("video").muted;});
 let sceneOrder=[],titleItems=[];
-function updateTitleOverlay(t){const overlay=$("title-overlay");const item=sequence?titleItems.find(x=>x.start<=t&&t<x.end):null;overlay.hidden=!item;overlay.textContent=item?.text||"";overlay.className=item?.position||"";}
+function updateTitleOverlay(t){const overlay=$("title-overlay");const item=sequence?titleItems.find(x=>x.start<=t&&t<x.end):null;overlay.hidden=!item;overlay.replaceChildren();overlay.className=item?item.position+" "+(item.style||"classic"):"";if(item){const span=document.createElement("span");span.textContent=item.text;overlay.append(span);}}
 function drawTitleTrack(){
   const list=$("title-track");list.replaceChildren();
   for(const [index,item] of titleItems.entries()){
-    const row=document.createElement("div");row.className="title-item";const label=document.createElement("span");label.textContent=format(item.start)+" – "+format(item.end)+" · "+item.position+" · "+item.text;row.append(label);
+    const row=document.createElement("div");row.className="title-item";const label=document.createElement("span");label.textContent=format(item.start)+" – "+format(item.end)+" · "+item.position+" · "+(item.style||"classic")+" · "+item.text;row.append(label);
     const b=document.createElement("button");b.textContent="Remove";b.disabled=busy;b.onclick=()=>{if(busy)return;remember();titleItems.splice(index,1);hideExports();drawTimeline();};row.append(b);list.append(row);
   }
   $("add-title").disabled=busy||!job||!selected.size||titleItems.length>=12;
 }
 $("add-title").addEventListener("click",()=>{
   if(busy||!job||titleItems.length>=12)return;
-  const start=$("title-in").valueAsNumber,end=$("title-out").valueAsNumber,position=$("title-position").value,text=$("title-text").value.trim().replaceAll("{","｛").replaceAll("}","｝").replaceAll("\\","＼").replaceAll("<","‹").replaceAll(">","›");
+  const start=$("title-in").valueAsNumber,end=$("title-out").valueAsNumber,position=$("title-position").value,style=$("title-style").value,text=$("title-text").value.trim().replaceAll("{","｛").replaceAll("}","｝").replaceAll("\\","＼").replaceAll("<","‹").replaceAll(">","›");
   if(!text||text.length>120||!Number.isFinite(start)||!Number.isFinite(end)||start<0||end-start<.1-1e-9||end>sequencePlan().total+1e-9||titleItems.some(t=>start<t.end&&end>t.start)){log("Use non-overlapping title times inside the edited sequence",true);return;}
-  remember();titleItems.push({start,end,text,position});titleItems.sort((a,b)=>a.start-b.start);$("title-text").value="";hideExports();drawTimeline();
+  remember();titleItems.push({start,end,text,position,style});titleItems.sort((a,b)=>a.start-b.start);$("title-text").value="";hideExports();drawTimeline();
 });
 function selectedOrder(){return SequencePreview.ordered(clips,selected,sceneOrder);}
 function moveScene(from,to){
@@ -234,6 +234,7 @@ function updateButtons() {
   $("analyze").disabled = busy || !job;
   $("render").disabled = busy || !selected.size;
   $("add-title").disabled=busy||!job||!selected.size||titleItems.length>=12;
+  for(const id of ["title-text","title-in","title-out","title-position","title-style"])$(id).disabled=busy||!job||!selected.size;
   $("studio-pack").disabled=busy||!job;
   $("clear-studio-brief").disabled=busy||!studioBrief;
   $("export-quality").disabled=busy;$("cancel-render").disabled=!activeRender;
