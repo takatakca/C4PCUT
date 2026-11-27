@@ -87,3 +87,5 @@ Editor account panel shows the authenticated plan or local/private mode, configu
 Chromium smoke in CI exercises the real private editor with generated two-second footage: restricted workspace, import/analyze/render/download, quota exhaustion and saved project lifecycle. No customer media or provider calls. Editor now disables export when known remaining quota is insufficient and serializes mutations during account refresh.
 
 Private operator reporting: `python admin_report.py` reads configured workspaces, plan profiles, grant state and monthly ledger usage without initializing or changing ledgers. No HTTP administration route or live billing integration; see docs/PRIVATE_GRANTS.md.
+
+C4PCUT ADMIN V2: append `--html /private/new-report.html` to the private admin report command to create a standalone visual dashboard. Status groups, usage meters, effective capabilities and summary metrics are available offline; no external scripts, HTTP admin endpoint, billing controls or live data connection. New files only, mode 0600.

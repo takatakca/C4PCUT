@@ -105,3 +105,6 @@
 
 ## Private admin reporting
 - PR #14 passed both standard and real Chromium CI and merged. Private operator CLI read-only snapshot implemented; test suite pending. No live workspace report retrieved, no admin web UI or production billing connection.
+
+## C4PCUT ADMIN V2
+- PR #15 passed CI and merged. Private standalone HTML visual report added. Test suite pending. Read-only snapshot, not a live administrative web service; no V1 or production integration.

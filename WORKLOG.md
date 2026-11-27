@@ -138,3 +138,7 @@
 ## Private administration report
 - PR #14 exact CI 45940859489 succeeded including browser_smoke.py and main test job; merged at 4188e410aa9b8815d12b5262cc75139aec054a13.
 - Added offline read-only workspace/grant/plan/usage snapshot with redacted identifiers and no ledger initialization; tests verify active/expired grant, accepted render preserved, missing ledger not created. CI pending. No live files or payment/production changes; browser admin UI remains outstanding.
+
+## Admin visual snapshot
+- PR #15 CI 45942888905 passed; merged at 7c731883b2021ed437e767c936b4e068b14f75be.
+- Added standalone private HTML dashboard from existing read-only snapshot: summary, expandable status groups, usage meters, effective capabilities. Escaped HTML, restrictive CSP, no external assets or scripts, exclusive 0600 file creation. Tests added; CI pending. No production files accessed or billing enabled; no live admin HTTP route.
