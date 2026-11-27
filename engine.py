@@ -168,7 +168,7 @@ def validate_render_budget(preset, framing, duration, quality):
     if dims and max(dims)>=2560 and duration>120:
         raise ValueError("QHD export limited to 120 seconds")
 
-def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None, preset="original", framing="fit", quality="standard", cancel=None, progress=None, title_ass=None, logo_path=None, logo_position="top_right", logo_size=20, logo_opacity=1, logo_start=0, logo_end=None):
+def render(source, output, clips, audio, subtitle_path=None, music_path=None, music_gain=.35, source_gain=1, burn_ass=None, preset="original", framing="fit", quality="standard", cancel=None, progress=None, title_ass=None, logo_path=None, logo_position="top_right", logo_size=20, logo_opacity=1, logo_start=0, logo_end=None, pip_path=None, pip_settings=None):
     total=sum(c["end"]-c["start"] for c in clips)
     validate_render_budget(preset,framing,total,quality)
     progress=progress or (lambda value: None)
@@ -212,7 +212,11 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
             filters.append(f"[0:a:0]atrim=start={a}:end={b},asetpts=PTS-STARTPTS,volume={source_gain}[a{i}]")
             inputs.append(f"[a{i}]")
     has_layers=burn_ass is not None or title_ass is not None
-    video_label = "[joined]" if has_layers or logo_path is not None else "[v]"
+    if pip_path is not None:
+        import pip_video
+        pip=pip_video.validate(pip_settings,probe(pip_path))
+        if not pip["enabled"]:raise ValueError("Picture-in-picture must be enabled")
+    video_label = "[joined]" if has_layers or logo_path is not None or pip_path is not None else "[v]"
     filters.append("".join(inputs) + f"concat=n={len(clips)}:v=1:a={int(has_audio)}" + video_label + ("[a]" if has_audio else ""))
     layer_input=video_label
     if logo_path is not None:
@@ -231,8 +235,22 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
         filters.append(f"[{logo_index}:v:0]scale={edge}:{edge}:force_original_aspect_ratio=decrease,format=rgba,colorchannelmixer=aa={logo_opacity:.6f}[logo]")
         end=min(total,logo_end) if logo_end is not None else total
         enabled=f"gte(t,{logo_start:.6f})*lt(t,{end:.6f})"
-        layer_input="[watermarked]" if has_layers else "[v]"
+        layer_input="[watermarked]" if has_layers or pip_path is not None else "[v]"
         filters.append(f"[joined][logo]overlay=x={x}:y={y}:eof_action=repeat:repeatlast=1:enable='{enabled}'{layer_input}")
+    if pip_path is not None:
+        corners={"top_left":("8","8"),"top_right":("W-w-8","8"),"bottom_left":("8","H-h-8"),"bottom_right":("W-w-8","H-h-8")}
+        x,y=corners[pip["position"]]
+        pip_index=1+int(subtitle_path is not None)+int(music_path is not None)+int(logo_path is not None)
+        if dimensions is None:
+            info=probe(source);w,h=info["width"],info["height"]
+        else:w,h=dimensions
+        edge=max(2,int(min(w,h)*pip["size"]/100)//2*2)
+        start,source_in,length=(pip[k] for k in ("start","source_in","length"))
+        filters.append(f"[{pip_index}:v:0]trim=start={source_in:.6f}:duration={length:.6f},setpts=PTS-STARTPTS+{start:.6f}/TB,scale={edge}:{edge}:force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1[pip]")
+        destination="[composited]" if has_layers else "[v]"
+        enabled=f"gte(t,{start:.6f})*lt(t,{min(total,start+length):.6f})"
+        filters.append(f"{layer_input}[pip]overlay=x={x}:y={y}:eof_action=pass:repeatlast=0:enable='{enabled}'{destination}")
+        layer_input=destination
     if has_layers:
         stages=[]
         if title_ass is not None:stages.append("ass=filename=titles.ass")
@@ -246,6 +264,8 @@ def render(source, output, clips, audio, subtitle_path=None, music_path=None, mu
         args += ["-i", str(Path(music_path).resolve())]
     if logo_path is not None:
         args += ["-f","image2","-pattern_type","none","-c:v","png","-i",str(Path(logo_path).resolve())]
+    if pip_path is not None:
+        args += ["-protocol_whitelist","file,pipe","-f","mov","-i",str(Path(pip_path).resolve())]
     args += ["-filter_complex_threads", "2", "-filter_complex", ";".join(filters), "-map", "[v]"]
     if has_audio:
         args += ["-map", "[a]", "-c:a", "aac", "-b:a", "160k"]
