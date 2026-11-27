@@ -55,3 +55,5 @@
 - Social format/container CI 45922432058 was in progress when this increment began.
 - Added validated versioned JSON project saves, source reopen, soundtrack snapshot isolation, explicit deletion, saved-project picker and optional persistent Docker volume. Default remains ephemeral. Added round-trip and validation tests; new CI pending.
 - No durable render queue, multi-user ownership, storage-volume quota or autosave. Unsaved orphan folders need owner cleanup; browser preview uses a source blob, not ranged streaming.
+
+- Social export and private Docker CI 45922432058 passed. Added saved-project HTTP round-trip test, explicit delete-only orphan entries, named deletion confirmation, and source MIME preservation independent of project name. Latest CI pending.

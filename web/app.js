@@ -1,7 +1,7 @@
 "use strict";
 const $ = id => document.getElementById(id);
 const commands = ["project = import_media()", "metadata = probe_media(project)", "scenes = detect_scenes(project)", "timeline = build_timeline(scenes)", "render(selected_clips)"];
-let token, job, clips = [], selected = new Set(), current = -1, busy = false, objectURL;
+let token, job, clips = [], selected = new Set(), current = -1, busy = false, objectURL, sourceMime="";
 let visuals = new Map(), history = [], future = [], edits = {}, cues = [], activeCue = -1;
 let musicData=null, sourceBeats=null, musicName="", directorPlan=null;
 let clipBatch=null, clipCandidates=[], clipDownloads=new Map();
@@ -73,7 +73,7 @@ function updateButtons() {
   $("analyze").disabled = busy || !job;
   $("render").disabled = busy || !selected.size;
   $("save-project").disabled=busy||!job;
-  $("open-project").disabled=busy||!$("saved-projects").value;
+  $("open-project").disabled=busy||!$("saved-projects").value||$("saved-projects").selectedOptions[0]?.dataset.saved!=="true";
   $("delete-project").disabled=busy||(!job&&!$("saved-projects").value);
   $("project-name").disabled=busy;$("saved-projects").disabled=busy;
   $("export-preset").disabled=busy;$("export-framing").disabled=busy||$("export-preset").value==="original";
@@ -167,7 +167,7 @@ async function action(fn){
 $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)return;action(async()=>{
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
   step(0);log("Importing "+file.name);const result=await request("/api/import",file,true);
-  job=result;clearDirector();clearClipper();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
+  job=result;sourceMime=["video/mp4","video/quicktime","video/webm"].includes(file.type)?file.type:"";$("saved-projects").value="";clearDirector();clearClipper();resetMusic();clips=[];cues=[];$("caption-mode").value="soft";activeCue=-1;refreshCaption();selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;hideExports();
   if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;$("project-name").value=file.name.slice(0,160);
   $("format").textContent=job.width+" × "+job.height;step(1,true);log("Media verified · "+format(job.duration));
 });$("file").value="";});
@@ -292,26 +292,26 @@ async function refreshProjects(){
   const data=await request("/api/projects/list",{});
   const select=$("saved-projects"), prior=select.value;
   select.replaceChildren(new Option("Saved projects",""));
-  for(const p of data.projects)select.add(new Option(p.name+" · "+format(p.duration),p.id));
+  for(const p of data.projects){const opt=new Option(p.name+(p.saved?" · "+format(p.duration):" (delete only)"),p.id);opt.dataset.saved=String(p.saved);select.add(opt);}
   if([...select.options].some(o=>o.value===prior))select.value=prior;
   $("storage-mode").textContent=data.persistent?"Persistent storage":"Session only — restart clears files";
   updateButtons();
 }
 $("saved-projects").addEventListener("change",updateButtons);
 $("save-project").addEventListener("click",()=>action(async()=>{
-  const result=await request("/api/projects/save",{id:job.id,name:$("project-name").value,selected:[...selected],edits,...clipperSettings()});
+  const result=await request("/api/projects/save",{id:job.id,name:$("project-name").value,source_mime:sourceMime,selected:[...selected],edits,...clipperSettings()});
   $("project").textContent=result.name;await refreshProjects();$("saved-projects").value=job.id;log("Saved project: "+result.name);
 }));
 $("open-project").addEventListener("click",()=>{
-  if(busy||!$("saved-projects").value)return;
+  if(busy||!$("saved-projects").value||$("saved-projects").selectedOptions[0]?.dataset.saved!=="true")return;
   if(job&&!window.confirm("Open saved project? Unsaved changes in the current editor will be discarded."))return;
   action(async()=>{
     const result=await request("/api/projects/open",{id:$("saved-projects").value});
     const response=await fetch(result.source_url);if(!response.ok)throw new Error("Saved source unavailable");
     const raw=await response.blob();
-    const suffix=result.state.name.split(".").pop().toLowerCase(), mime={mp4:"video/mp4",mov:"video/quicktime",webm:"video/webm",m4v:"video/mp4"}[suffix]||"video/mp4";
+    sourceMime=result.state.source_mime;
     if(objectURL)URL.revokeObjectURL(objectURL);
-    objectURL=URL.createObjectURL(new Blob([raw],{type:mime}));
+    objectURL=URL.createObjectURL(new Blob([raw],{type:sourceMime}));
     job=result;clearDirector();clearClipper();resetMusic();clips=result.clips;visuals.clear();history=[];future=[];current=-1;activeCue=-1;
     const s=result.state;selected=new Set(s.selected);edits=s.edits;cues=s.cues;musicData=result.music;musicName="Saved soundtrack";
     $("use-music").checked=s.use_music;$("music-gain").value=s.music_gain;$("source-gain").value=s.source_gain;$("caption-mode").value=s.caption_mode;$("export-preset").value=s.preset;$("export-framing").value=s.framing;
@@ -323,7 +323,8 @@ $("open-project").addEventListener("click",()=>{
 });
 $("delete-project").addEventListener("click",()=>{
   const id=$("saved-projects").value||job?.id;if(busy||!id)return;
-  if(!window.confirm("Permanently delete this project and all its media and exports?"))return;
+  const name=$("saved-projects").value?$("saved-projects").selectedOptions[0].textContent:$("project-name").value||"Current import";
+  if(!window.confirm("Permanently delete "+name+" and all its media and exports?"))return;
   action(async()=>{
     await request("/api/projects/delete",{id});
     if(job?.id===id){

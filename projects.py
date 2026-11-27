@@ -53,7 +53,10 @@ def validate_state(payload, clips, metadata, has_music):
         raise ValueError("Invalid music state")
     preset,framing=payload.get("preset","original"),payload.get("framing","fit")
     engine.validate_format(preset,framing)
-    return {"name":name,"selected":selected,"edits":edits,
+    mime=payload.get("source_mime","video/mp4")
+    if not isinstance(mime,str) or mime not in set(MIMES.values()) | {""}:
+        raise ValueError("Invalid source MIME")
+    return {"name":name,"selected":selected,"edits":edits,"source_mime":mime,
             "cues":captions.validate(payload.get("cues",[]),metadata["duration"]),
             "caption_mode":captions.validate_mode(payload.get("caption_mode","soft")),
             "use_music":use_music,"music_gain":music.validate_gain(payload.get("music_gain",.35)),
@@ -133,7 +136,7 @@ def list_saved(root):
             continue
         try:
             data=read(folder)
-            result.append({"id":folder.name,"name":data["state"]["name"],"duration":data["metadata"]["duration"]})
+            result.append({"id":folder.name,"name":data["state"]["name"],"duration":data["metadata"]["duration"],"saved":True})
         except (OSError,ValueError,KeyError,TypeError):
-            continue
+            result.append({"id":folder.name,"name":"Unsaved or unreadable import "+folder.name[:8],"duration":None,"saved":False})
     return result
