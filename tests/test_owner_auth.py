@@ -54,7 +54,7 @@ class OwnerAuthTests(unittest.TestCase):
                     conn.close()
             try:
                 self.assertEqual(request("/healthz")[0],200)
-                for path in ["/","/app.js","/api/session","/api/source/"+ident]:
+                for path in ["/","/app.js","/api/session","/api/usage","/api/source/"+ident]:
                     self.assertEqual(request(path)[0],401)
                 self.assertEqual(request("/api/projects/list",post=True)[0],401)
                 status,headers,_=request("/",auth=True)

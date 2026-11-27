@@ -1,0 +1,4 @@
+services:
+  c4pcut:
+    environment:
+      C4PCUT_MONTHLY_RENDER_SECONDS: "${C4PCUT_MONTHLY_RENDER_SECONDS:?Set an owner-approved monthly render-attempt seconds cap}"

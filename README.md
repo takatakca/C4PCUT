@@ -54,3 +54,6 @@ Main export submits a bounded in-memory queue (one worker, maximum three active 
 
 ## Private owner access
 Optional C4PCUT_OWNER_PASSWORD enables Basic authentication for the entire editor and media API (except minimal health check). Use a unique long password and a trusted local/SSH-tunnel connection. The owner Compose overlay requires a configured password. Cross-origin mutation requests and missing CSRF tokens are rejected. This is a single-owner access boundary, not TAKATAK account integration or a public multi-tenant service.
+
+## Local render usage
+The owner-local SQLite ledger records rounded requested output seconds for main and clipper render attempts, with terminal outcomes. Optional C4PCUT_MONTHLY_RENDER_SECONDS sets a UTC calendar-month cap; unset means no cap. Cancelled, failed and interrupted accepted attempts still count toward this resource protection cap; queue rejections are excluded. This is not billable usage, no payments or customer subscriptions are enabled. Persistent storage retains the ledger across restarts. See docs/STUDIO_INTEGRATION.md for the proposed future account boundary.

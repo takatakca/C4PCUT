@@ -20,7 +20,7 @@ class RenderQueue:
         with self.lock:
             return any(t["status"] in ("queued","running","cancelling") for t in self.tasks.values())
 
-    def submit(self, project, work):
+    def submit(self, project, work, on_finish=None):
         with self.lock:
             active=[t for t in self.tasks.values() if t["status"] in ("queued","running","cancelling")]
             if self.closed or len(active)>=self.capacity or any(t["project"]==project for t in active):
@@ -36,7 +36,7 @@ class RenderQueue:
                 del self.tasks[old]
             ident=secrets.token_hex(16)
             self.tasks[ident]={"project":project,"status":"queued","progress":0,
-                               "cancel":threading.Event(),"work":work,"result":None}
+                               "cancel":threading.Event(),"work":work,"result":None,"on_finish":on_finish}
             self.pending.append(ident)
             if self.worker is None:
                 self.worker=threading.Thread(target=self._run,daemon=True)
@@ -56,10 +56,22 @@ class RenderQueue:
                 t["status"]="cancelled"
                 self.pending.remove(ident)
                 t.pop("work",None)
+                self._notify(t,"cancelled")
             elif t["status"]=="running":
                 t["cancel"].set()
                 t["status"]="cancelling"
             return t["status"]
+
+    @staticmethod
+    def _notify(task,status):
+        callback=task.pop("on_finish",None)
+        if callback is not None:
+            try:
+                callback(status)
+            except Exception:
+                # Keep worker alive; accepted usage stays counted conservatively.
+                import logging
+                logging.exception("Render outcome accounting failed")
 
     def _run(self):
         while True:
@@ -83,6 +95,7 @@ class RenderQueue:
                 result=None
                 status="failed"
             with self.lock:
+                self._notify(t,status)
                 t["status"]=status
                 t["result"]=result
                 if status=="completed":

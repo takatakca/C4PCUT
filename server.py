@@ -14,6 +14,7 @@ import director
 import clipper
 import projects
 import owner_auth
+import usage
 from render_queue import RenderQueue, Cancelled
 from contextlib import nullcontext
 import re
@@ -87,6 +88,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply({"status": "ok", "mode": "private-local"})
         if not self.owner_allowed():
             return
+        if path == "/api/usage":
+            ledger=getattr(self.server,"ledger",None)
+            return self.reply(ledger.summary() if ledger else {"enabled":False})
         if path == "/api/session":
             return self.reply({"token": TOKEN})
         static = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
@@ -304,6 +308,12 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Import music first")
                 music_gain = music.validate_gain(payload.get("music_gain", .35))
                 source_gain = music.validate_gain(payload.get("source_gain", 1))
+                preset,framing,quality=payload.get("preset","original"),payload.get("framing","fit"),payload.get("quality","standard")
+                duration=sum(c["end"]-c["start"] for c in selected)
+                engine.validate_render_budget(preset,framing,duration,quality)
+                ledger=getattr(self.server,"ledger",None)
+                usage_id=ledger.reserve(job_id,"clipper",duration) if ledger else None
+                outcome="failed"
                 folder = job["folder"] / "clips"
                 temp, subtitle = folder / "pending.mp4", folder / "pending.srt"
                 try:
@@ -312,9 +322,14 @@ class Handler(BaseHTTPRequestHandler):
                     burn = captions.to_ass(mapped,caption_mode) if mapped and caption_mode != "soft" else None
                     engine.render(source,temp,selected,job["metadata"]["audio"],subtitle if mapped and caption_mode=="soft" else None,music_path,music_gain,source_gain,burn_ass=burn, preset=payload.get('preset','original'), framing=payload.get('framing','fit'), quality=payload.get('quality','standard'))
                     temp.replace(folder / f"{index}.mp4")
+                    outcome="completed"
                 finally:
-                    temp.unlink(missing_ok=True)
-                    subtitle.unlink(missing_ok=True)
+                    try:
+                        temp.unlink(missing_ok=True)
+                        subtitle.unlink(missing_ok=True)
+                    finally:
+                        if ledger:
+                            ledger.finish(usage_id,outcome)
                 return self.reply({"url":f"/api/clipper/{job_id}/{job['clip_batch']}/{index}.mp4"})
             if path == "/api/render":
                 selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}))
@@ -355,9 +370,18 @@ class Handler(BaseHTTPRequestHandler):
                     finally:
                         temp.unlink(missing_ok=True)
                         subtitle.unlink(missing_ok=True)
-                ident=RENDERS.submit(job_id,work)
+                ledger=getattr(self.server,"ledger",None)
+                usage_id=ledger.reserve(job_id,"main",sum(c["end"]-c["start"] for c in selected)) if ledger else None
+                try:
+                    ident=RENDERS.submit(job_id,work,on_finish=(lambda status:ledger.finish(usage_id,status)) if ledger else None)
+                except Exception:
+                    if ledger:
+                        ledger.finish(usage_id,"rejected")
+                    raise
                 return self.reply({"render_id":ident},202)
             return self.reply({"error": "Not found"}, 404)
+        except usage.QuotaExceeded:
+            return self.reply({"error":"Monthly render-attempt quota exceeded"},429)
         except (ValueError, KeyError, TypeError):
             return self.reply({"error": "Invalid input or unsupported media"}, 400)
         except Exception as exc:
@@ -385,6 +409,11 @@ if __name__ == "__main__":
             server.storage = storage
             server.owner_digest = digest
             server.persistent = bool(root)
+            try:
+                limit=usage.limit_from_env(os.environ.get("C4PCUT_MONTHLY_RENDER_SECONDS"))
+                server.ledger=usage.Ledger(storage,limit)
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from exc
             print("C4PCUT: http://" + HOST, flush=True)
             try:
                 server.serve_forever()
