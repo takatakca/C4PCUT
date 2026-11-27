@@ -105,3 +105,5 @@ Graphic title presets: classic, purple banner and dark banner; top, center or lo
 Single PNG watermark: 2 MiB upload, maximum 1024×1024, fixed corner and size, normalized into private RGBA PNG. Saved project revisions retain the asset independently. Main MP4 only; no general image/video layering. Browser preview is approximate.
 
 Watermark V2: adjustable 10–40% size relative to shorter output edge, 10–100% opacity, optional edited-time interval. Exact authenticated asset URLs, no query parameter needed; monitor uses a local blob and releases it on project change. Existing saved watermark settings default to full duration/20%/opaque. No general image/video layer yet.
+
+Developer engine increment: a bounded secondary MP4 can be normalized to silent H.264 (30 seconds, 24 MiB input, maximum 720-pixel output edge) and composited at an edited-time offset with a selected source trim and corner. Supports coexistence with existing logo/title/caption filters in the engine. No HTTP upload, editor controls or project persistence for the secondary video yet; do not expose this directly to clients.

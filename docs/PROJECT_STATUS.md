@@ -135,3 +135,6 @@
 - Single bounded PNG logo, corner selection, normalized private asset, project persistence and MP4 composition implemented on stacked branch. New CI pending; parent graphic-title CI must pass first. General multi-layer image/video editing, production isolation and live integration remain open.
 
 - Graphic titles merged after green CI; PNG watermark initial CI green. Retargeted PR #23 reconciled with main and enhanced timed watermark/size/opacity. Latest combined CI pending. General image/video tracks, actual commercial integration and production deployment remain outstanding.
+
+## Picture-in-picture engine
+- PR #23 passed CI and merged. Secondary-video normalization and composition engine added, tests pending. Not exposed in UI or HTTP; project persistence and workspace access still to implement. General multiple image/video layers, production integration and live deployment remain open.

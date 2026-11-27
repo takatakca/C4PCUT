@@ -174,3 +174,7 @@
 - Stacked on title PR #22 corrected head ee859716b75413d09abe63b0324022feb6eea017 while its CI runs. Added single bounded PNG normalization/upload, scoped retrieval, fixed-corner FFmpeg watermark, saved revision and settings, preview and issuer route allowlist. Added actual pixel, duration, normalization and project restore tests. CI pending. No arbitrary image/video tracks or live production access; no paid service.
 
 - PR #22 CI 45955136212 succeeded and merged at 65201c3bc9f2189c275a52dfd4edaa8fc023846b; main tree exactly matches corrected parent. PR #23 stacked CI 45955247176 succeeded. Reconciled retargeted PR using both parents. Added watermark size/opacity/output-time interval with compatibility defaults, exact-path blob preview, real timed pixel tests, issuer and Chromium settings persistence tests. New exact-head CI pending; no public launch or fees.
+
+## Picture-in-picture engine
+- PR #23 CI 45955629025 succeeded and merged at 724599091cf57b3f5e4d758ce179c479ff7e7043. Timed watermark settings verified.
+- Added bounded secondary MP4 normalization, silent output, validated size/corner/source trim/output offset and FFmpeg overlay compositing. Added real timed pixel/duration and malformed-input tests. CI pending. Deliberately engine-only: upload endpoints, saved revision, UI and scoped integration remain outstanding. No fees or live deployment.
