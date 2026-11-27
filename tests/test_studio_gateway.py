@@ -1,5 +1,6 @@
 import base64
 import hmac
+import hashlib
 import json
 import secrets
 import tempfile
@@ -21,10 +22,10 @@ KEY=b"k"*32
 def encode(raw):
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
-def assertion(target="/api/session",method="GET",client=A,**changes):
+def assertion(target="/api/session",method="GET",client=A,body=b"",**changes):
     claims={"iss":studio_gateway.ISSUER,"aud":studio_gateway.AUDIENCE,"sub":PROFILE,
             "client_id":client,"permission":"create_content","entitlement":"c4pcut_active",
-            "iat":1000,"exp":1030,"nonce":secrets.token_hex(16),"method":method,"target":target}
+            "iat":1000,"exp":1030,"nonce":secrets.token_hex(16),"method":method,"target":target,"body_sha256":hashlib.sha256(body).hexdigest()}
     claims.update(changes)
     raw=encode(json.dumps(claims,separators=(",",":")).encode())
     return raw+"."+encode(hmac.digest(KEY,raw.encode(),"sha256"))
@@ -43,6 +44,22 @@ class GatewayTests(unittest.TestCase):
         self.assertIsNone(g.verify(assertion(target="/api/session?x=1"),"GET","/api/session"))
         with self.assertRaises(ValueError):
             studio_gateway.Gateway(KEY,{A:"alpha",B:"alpha"},{"alpha":None,"beta":None})
+
+    def test_persistent_replay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"replay.sqlite3"
+            args=(KEY,{A:"alpha"},{"alpha":None})
+            a=studio_gateway.Gateway(*args,clock=lambda:1001,replay=studio_gateway.ReplayStore(path))
+            b=studio_gateway.Gateway(*args,clock=lambda:1001,replay=studio_gateway.ReplayStore(path))
+            token=assertion()
+            results=[]
+            threads=[threading.Thread(target=lambda g=g:results.append(g.verify(token,"GET","/api/session"))) for g in (a,b)]
+            for t in threads:t.start()
+            for t in threads:t.join()
+            self.assertEqual(sum(r is not None for r in results),1)
+            restarted=studio_gateway.Gateway(*args,clock=lambda:1002,replay=studio_gateway.ReplayStore(path))
+            self.assertIsNone(restarted.verify(token,"GET","/api/session"))
+            self.assertIsNone(restarted.verify(assertion(body=b"unexpected"),"GET","/api/session"))
 
     def test_http_scope_and_no_basic_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -85,8 +102,9 @@ class GatewayTests(unittest.TestCase):
                 self.assertEqual(req(path,assertion(target=path)),(200,b"private alpha"))
                 self.assertEqual(req(path,assertion(target=path,client=B))[0],404)
                 path="/api/projects/list"
-                self.assertEqual(req(path,assertion(target=path,method="POST",client=B),payload={},csrf=registry["alpha"].token)[0],403)
-                self.assertEqual(req(path,assertion(target=path,method="POST",client=B),payload={},csrf=registry["beta"].token)[0],200)
+                self.assertEqual(req(path,assertion(target=path,method="POST",client=B,body=b"{}"),payload={},csrf=registry["alpha"].token)[0],403)
+                self.assertEqual(req(path,assertion(target=path,method="POST",client=B,body=b"{}"),payload={},csrf=registry["beta"].token)[0],200)
+                self.assertEqual(req(path,assertion(target=path,method="POST",client=B,body=b"{}"),payload={"tampered":True},csrf=registry["beta"].token)[0],403)
             finally:
                 httpd.shutdown()
                 httpd.server_close()

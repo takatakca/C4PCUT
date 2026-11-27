@@ -90,3 +90,7 @@
 ## Studio gateway verification precursor
 - PR #7 pack CI 45933475479 still running at start. Kept work on same branch; no unverified merge.
 - Added opt-in receiver verifier with signed client/profile/permission/entitlement claims, one-to-one trusted workspace map, exact request method/target, 30-second TTL, bounded replay cache, no Basic fallback in gateway mode and HTTP isolation tests. No live issuer, body signature, restart-durable replay or public exposure. Latest CI pending.
+
+## Gateway protocol v2 hardening
+- Prior gateway CI 45933600623 in progress at start. No unverified merge.
+- Added mandatory signed body SHA-256, exact authenticated body staging before mutation, strict length/transfer checks, bounded staging slot, persistent transactional replay store and cross-instance/restart replay tests. Updated protocol audience to v2, no compatibility fallback. New CI pending; issuer and secure transport still absent.

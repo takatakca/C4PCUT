@@ -69,3 +69,5 @@
 
 ## Studio gateway receiver
 - Optional signed service request verification and workspace mapping implemented, disabled by default. Receiver tests added; new CI pending. No actual V1 issuer or product entitlement lookup, no live SSO, no public deployment. Private secure transport and replay durability remain prerequisites.
+
+- Gateway v2 receiver now binds body bytes and persists nonce claims in SQLite; restart/cross-instance replay and tampering tests added. CI pending. Trusted issuer, verified entitlement lookup, worker sandboxing and live integration still not implemented.

@@ -65,3 +65,5 @@ Optional administrator-provisioned workspace configuration gives each workspace 
 With footage imported, attach a TAKATAKSTUDIO production_request_pack v1 JSON (maximum 16 KiB). Review the populated project name and Director prompt; explicitly save to keep the whitelisted creative brief with the project. No jobs, identities, billing permissions, remote URLs or publishing instructions are imported. No AI runs until explicitly requested. This is offline interoperability, not SSO.
 
 Optional private gateway assertion verifier has been implemented for future Studio service-to-service integration. It is disabled by default, requires a server-side workspace mapping and private signing key, verifies short-lived request-bound claims, and rejects replay within one running process. No V1 issuer or public SSO is connected. See docs/STUDIO_INTEGRATION.md.
+
+Gateway receiver v2 adds mandatory exact body digest, bounded authenticated body staging and persistent SQLite nonce reservations. V1 assertions are rejected. See the v2 contract in docs/STUDIO_INTEGRATION.md.

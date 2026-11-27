@@ -38,3 +38,5 @@ Use a dedicated private persistent storage root and a trusted admin-provisioned 
 
 ## Gateway mode (disabled by default)
 Receiver-side only. Do not configure a public domain or expose this mode until trusted gateway issuance, authentication, entitlement validation and secure transport are verified. Private workspace mode plus both mapping/key files are required; no Basic fallback. See docs/STUDIO_INTEGRATION.md for exact contract. Never commit key material or map private client IDs in public GitHub.
+
+Gateway protocol v2 requires signed body digest and durable nonce database. Keep the data root persistent and private. Body staging adds temporary disk use (up to one 250 MB video) and a bounded upload slot; keep adequate headroom. Do not enable public ingress.

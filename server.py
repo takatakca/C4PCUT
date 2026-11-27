@@ -18,6 +18,8 @@ import usage
 import workspaces
 import studio_pack
 import studio_gateway
+import hashlib
+import time
 from render_queue import RenderQueue, Cancelled
 from contextlib import nullcontext
 import re
@@ -26,6 +28,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent / "web"
 LOCK = threading.Lock()
+GATEWAY_UPLOADS = threading.BoundedSemaphore(1)
 JOBS = {}
 RENDERS = RenderQueue()
 TOKEN = secrets.token_urlsafe(32)
@@ -49,6 +52,7 @@ class Handler(BaseHTTPRequestHandler):
             if gateway is not None:
                 principal=gateway.verify(self.headers.get("X-C4PCUT-Gateway"),self.command,self.path)
                 workspace=registry.get(principal.workspace) if principal is not None else None
+                self.gateway_principal=principal
             else:
                 workspace=workspaces.authenticate(self.headers.get("Authorization"),registry)
             if workspace is not None:
@@ -112,6 +116,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply({"status": "ok", "mode": "private-local"})
         if not self.owner_allowed():
             return
+        if getattr(self,"gateway_principal",None) is not None and (self.headers.get("Transfer-Encoding") is not None or self.headers.get_all("Content-Length",[]) not in ([],["0"])):
+            return self.reply({"error":"Unexpected GET body"},400)
         if path == "/api/usage":
             return self.reply(self.ledger.summary() if self.ledger else {"enabled":False})
         if path == "/api/session":
@@ -146,6 +152,54 @@ class Handler(BaseHTTPRequestHandler):
         if not owner_auth.allowed_origin(self.headers.get("Origin"),self.headers.get("Host"),self.headers.get("Sec-Fetch-Site")) or not secrets.compare_digest(self.headers.get("X-C4PCUT-Token","").encode("utf-8"),self.csrf_token.encode("utf-8")):
             return self.reply({"error": "Forbidden"}, 403)
         path = urlsplit(self.path).path
+        if getattr(self,"gateway_principal",None) is not None:
+            # Authenticate before receiving a body. Stage bytes, verify digest,
+            # then replay only the verified bytes through existing handlers.
+            limit=engine.MAX_BYTES if path=="/api/import" else music.MAX_MUSIC_BYTES if path.startswith("/api/music/import/") else 262144
+            if path in {"/api/render/status","/api/render/cancel"}:
+                limit=1024
+            if self.headers.get("Transfer-Encoding") is not None:
+                return self.reply({"error":"Chunked requests unsupported"},400)
+            lengths=self.headers.get_all("Content-Length",[])
+            if len(lengths)!=1 or not re.fullmatch(r"[0-9]{1,10}",lengths[0]):
+                return self.reply({"error":"Invalid content length"},400)
+            size=int(lengths[0])
+            if not 0<size<=limit:
+                return self.reply({"error":"Invalid request size"},400)
+            # Limit concurrent gateway body staging independent of render queue.
+            if not GATEWAY_UPLOADS.acquire(blocking=False):
+                return self.reply({"error":"Gateway upload busy"},409)
+            try:
+                self.connection.settimeout(10)
+                deadline=time.monotonic()+60
+                with tempfile.TemporaryFile() as verified:
+                    digest=hashlib.sha256()
+                    remaining=size
+                    while remaining:
+                        if time.monotonic()>deadline:
+                            return self.reply({"error":"Upload deadline exceeded"},408)
+                        chunk=self.rfile.read1(min(remaining,1024*1024))
+                        if not chunk:
+                            return self.reply({"error":"Incomplete body"},400)
+                        remaining-=len(chunk)
+                        digest.update(chunk)
+                        verified.write(chunk)
+                    if not secrets.compare_digest(digest.hexdigest(),self.gateway_principal.body_sha256):
+                        return self.reply({"error":"Request body signature mismatch"},403)
+                    verified.seek(0)
+                    original=self.rfile
+                    self.rfile=verified
+                    try:
+                        return self.dispatch_post(path)
+                    finally:
+                        self.rfile=original
+            except (OSError,TimeoutError):
+                return self.reply({"error":"Gateway body read failed"},400)
+            finally:
+                GATEWAY_UPLOADS.release()
+        return self.dispatch_post(path)
+
+    def dispatch_post(self,path):
         if path in {"/api/render/status","/api/render/cancel"}:
             try:
                 self.connection.settimeout(10)
@@ -451,7 +505,7 @@ if __name__ == "__main__":
                 if config and limit is not None:
                     raise ValueError("Set quotas in workspace configuration, not global environment")
                 server.workspaces=workspaces.load(config,storage) if config else None
-                server.studio_gateway=studio_gateway.load(gateway_config,gateway_key,server.workspaces) if gateway_config else None
+                server.studio_gateway=studio_gateway.load(gateway_config,gateway_key,server.workspaces,storage) if gateway_config else None
                 server.ledger=None if config else usage.Ledger(storage,limit)
             except ValueError as exc:
                 raise SystemExit(str(exc)) from exc
