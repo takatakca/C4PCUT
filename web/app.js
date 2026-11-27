@@ -2,10 +2,11 @@
 const $ = id => document.getElementById(id);
 const commands = ["project = import_media()", "metadata = probe_media(project)", "scenes = detect_scenes(project)", "timeline = build_timeline(scenes)", "render(selected_clips)"];
 let token, job, clips = [], selected = new Set(), current = -1, busy = false, objectURL;
-let visuals = new Map(), history = [], future = [];
-function snapshot(){return [...selected];}
+let visuals = new Map(), history = [], future = [], edits = {};
+function snapshot(){return {selected:[...selected],edits:JSON.parse(JSON.stringify(edits))};}
+function edited(c){return edits[c.id]||c;}
 function remember(){history.push(snapshot());if(history.length>100)history.shift();future=[];}
-function restore(stack, other){if(busy||!stack.length)return;other.push(snapshot());selected=new Set(stack.pop());$("download").hidden=true;drawTimeline();log("Selection history restored");}
+function restore(stack, other){if(busy||!stack.length)return;other.push(snapshot());const state=stack.pop();selected=new Set(state.selected);edits=state.edits;refreshInspector();$("download").hidden=true;drawTimeline();log("Selection history restored");}
 function updatePlayhead(){
   const lane=$("tracks").querySelector(".lane");
   if(!lane||!job){$("playhead").hidden=true;return;}
@@ -22,7 +23,7 @@ function waveform(peaks){
 }
 const code = $("code");
 commands.forEach(cmd => { const li = document.createElement("li"); li.textContent = cmd; code.append(li); });
-const tracks = [["V3  EFFECTS","reserved"],["V2  CAPTIONS","reserved"],["V1  VIDEO","video"],["A1  SOURCE AUDIO","audio"],["A2  MUSIC","reserved"]];
+const tracks = [["V3  EFFECTS","effect"],["V2  CAPTIONS","reserved"],["V1  VIDEO","video"],["A1  SOURCE AUDIO","audio"],["A2  MUSIC","reserved"]];
 function log(message, error=false) {
   const div = document.createElement("div");
   div.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
@@ -38,6 +39,7 @@ function updateButtons() {
   $("analyze").disabled = busy || !job;
   $("render").disabled = busy || !selected.size;
   $("undo").disabled=busy||!history.length;$("redo").disabled=busy||!future.length;
+  for(const id of ["trim-in","trim-out","effect","apply-edit","reset-edit"])$(id).disabled=busy||current<0;
   $("status").textContent = busy ? "● PROCESSING" : "● READY";
 }
 async function request(path, body, raw=false) {
@@ -46,7 +48,7 @@ async function request(path, body, raw=false) {
 }
 function format(t) { const m = Math.floor(t/60); return String(m).padStart(2,"0")+":"+String((t%60).toFixed(3)).padStart(6,"0"); }
 function summary() {
-  const seconds = clips.filter(c=>selected.has(c.id)).reduce((a,c)=>a+c.end-c.start,0);
+  const seconds = clips.filter(c=>selected.has(c.id)).reduce((a,c)=>a+edited(c).end-edited(c).start,0);
   $("summary").textContent = selected.size+" / "+clips.length+" scenes selected · "+seconds.toFixed(2)+" s";
   updateButtons();
 }
@@ -62,7 +64,11 @@ function drawTimeline() {
       const empty=document.createElement("span");empty.className="empty";empty.textContent=kind==="reserved"?"Reserved for next milestone":kind==="audio"?"No source audio":"Analyze footage to populate";lane.append(empty);
     }else for(const clip of clips){
       const cell=document.createElement("div");cell.className="clip "+kind+(selected.has(clip.id)?"":" excluded")+(current===clip.id?" selected":"");
-      cell.style.flex=(clip.end-clip.start)+" 1 0";cell.title=format(clip.start)+" – "+format(clip.end);
+      cell.style.flex=(clip.end-clip.start)+" 1 0";const edit=edited(clip);cell.title=format(edit.start)+" – "+format(edit.end);
+      if(kind==="effect"){cell.classList.add(edit.effect&&edit.effect!=="none"?"effect-on":"effect-off");}
+      if(kind==="video"&&(edit.start!==clip.start||edit.end!==clip.end)){
+        const shade=document.createElement("div");shade.className="trim-overlay";shade.style.setProperty("--in",((edit.start-clip.start)/(clip.end-clip.start)*100)+"%");shade.style.setProperty("--out",((clip.end-edit.end)/(clip.end-clip.start)*100)+"%");cell.append(shade);
+      }
       if(kind==="video"){
         cell.id="clip-"+clip.id;const check=document.createElement("input");check.type="checkbox";check.checked=selected.has(clip.id);check.setAttribute("aria-label","Keep scene "+(clip.id+1));check.disabled=busy;
         check.addEventListener("click",e=>e.stopPropagation());check.addEventListener("change",()=>{remember();check.checked?selected.add(clip.id):selected.delete(clip.id);$("download").hidden=true;drawTimeline();});cell.append(check);
@@ -70,14 +76,27 @@ function drawTimeline() {
       const visual=visuals.get(clip.id);
       if(kind==="video"&&visual?.thumbnail){const img=document.createElement("img");img.src=visual.thumbnail;img.alt="";img.className="thumbnail";cell.prepend(img);}
       if(kind==="audio"&&visual?.peaks?.length)cell.prepend(waveform(visual.peaks));
-      const name=document.createElement("span");name.textContent=kind==="audio"?"Audio "+(clip.id+1):"Scene "+(clip.id+1);cell.append(name);
+      const name=document.createElement("span");name.textContent=kind==="effect"?(edit.effect&&edit.effect!=="none"?edit.effect:"—"):kind==="audio"?"Audio "+(clip.id+1):"Scene "+(clip.id+1);cell.append(name);
       cell.tabIndex=0;cell.addEventListener("click",()=>preview(clip));cell.addEventListener("keydown",e=>{if(e.target===cell&&(e.key==="Enter"||e.key===" ")){e.preventDefault();preview(clip);}});lane.append(cell);
     }
     parent.append(row);
   }
   summary();updatePlayhead();
 }
-function preview(clip){current=clip.id;$("video").currentTime=clip.start;$("selection").textContent="Scene "+(clip.id+1)+" · "+format(clip.start);drawTimeline();connect(3,$("clip-"+clip.id));}
+function refreshInspector(){
+  const base=clips.find(c=>c.id===current);if(!base)return;
+  const c=edited(base);$("trim-in").min=base.start;$("trim-in").max=base.end;$("trim-out").min=base.start;$("trim-out").max=base.end;
+  $("trim-in").value=c.start;$("trim-out").value=c.end;$("effect").value=c.effect||"none";
+  $("selection").textContent="Scene "+(base.id+1)+" · source preview";
+}
+function preview(clip){current=clip.id;$("video").currentTime=edited(clip).start;refreshInspector();drawTimeline();connect(3,$("clip-"+clip.id));}
+$("apply-edit").addEventListener("click",()=>{
+  const base=clips.find(c=>c.id===current);if(!base||busy)return;
+  const start=$("trim-in").valueAsNumber,end=$("trim-out").valueAsNumber,effect=$("effect").value;
+  if(!Number.isFinite(start)||!Number.isFinite(end)||start<base.start||end>base.end||end<=start||end-start<Math.min(.1,base.end-base.start)-1e-9){log("Trim must stay within scene boundaries",true);return;}
+  remember();edits[base.id]={start,end,effect};$("download").hidden=true;drawTimeline();log("Applied scene "+(base.id+1)+" trim / "+effect);connect(3,$("clip-"+base.id));
+});
+$("reset-edit").addEventListener("click",()=>{if(busy||current<0||!edits[current])return;remember();delete edits[current];$("download").hidden=true;refreshInspector();drawTimeline();log("Scene edit reset");});
 let connectionTimer;
 function connect(line,target){
   if(!target)return; const svg=$("connections"), base=$("studio").getBoundingClientRect(), a=code.children[line].getBoundingClientRect(), b=target.getBoundingClientRect();
@@ -90,13 +109,13 @@ async function action(fn){
 $("file").addEventListener("change",()=>{const file=$("file").files[0];if(!file)return;action(async()=>{
   if(file.size>250*1024*1024)throw new Error("Maximum input size is 250 MB");
   step(0);log("Importing "+file.name);const result=await request("/api/import",file,true);
-  job=result;clips=[];selected.clear();visuals.clear();history=[];future=[];current=-1;$("download").hidden=true;
+  job=result;clips=[];selected.clear();visuals.clear();history=[];future=[];edits={};current=-1;$("download").hidden=true;
   if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(file);$("video").src=objectURL;$("placeholder").hidden=true;$("project").textContent=file.name;
   $("format").textContent=job.width+" × "+job.height;step(1,true);log("Media verified · "+format(job.duration));
 });$("file").value="";});
 $("analyze").addEventListener("click",()=>action(async()=>{
   step(2);log("Running FFmpeg scene detection…");$("download").hidden=true;
-  const result=await request("/api/analyze",{id:job.id});clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];current=-1;
+  const result=await request("/api/analyze",{id:job.id});clips=result.clips;selected=new Set(clips.map(c=>c.id));visuals.clear();history=[];future=[];edits={};current=-1;
   step(3);log(clips.length+" scene segment(s) detected; extracting actual thumbnails and waveform");drawTimeline();
   try{const result=await request("/api/visuals",{id:job.id});visuals=new Map(result.visuals.map(v=>[v.id,v]));log("Scene thumbnails and source audio peaks ready");}
   catch(e){log("Visual extraction failed; cuts remain usable: "+e.message,true);}
@@ -104,7 +123,7 @@ $("analyze").addEventListener("click",()=>action(async()=>{
 }));
 $("render").addEventListener("click",()=>action(async()=>{
   step(4);$("download").hidden=true;log("Rendering "+selected.size+" selected scenes…");
-  const result=await request("/api/render",{id:job.id,clips:[...selected]});step(4,true);log("MP4 export complete");$("download").href=result.url;$("download").hidden=false;connect(4,$("download"));
+  const result=await request("/api/render",{id:job.id,clips:[...selected],edits});step(4,true);log("MP4 export complete");$("download").href=result.url;$("download").hidden=false;connect(4,$("download"));
 }));
 $("video").addEventListener("timeupdate",()=>{$("time").textContent=format($("video").currentTime);updatePlayhead();});
 $("undo").addEventListener("click",()=>restore(history,future));

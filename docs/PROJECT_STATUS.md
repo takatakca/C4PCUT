@@ -15,3 +15,6 @@
 ## Timeline enhancement
 - Implemented actual scene midpoint thumbnails and per-segment source audio peak envelopes, source-time playhead and selection undo/redo.
 - Not yet verified by CI for this increment. True independent multitrack editing, trim handles and persistent history remain planned.
+
+## Scene editing
+- Per-scene non-destructive trim and three fixed render presets implemented with server validation; effects track shows chosen presets. Source monitor remains unprocessed. No arbitrary filter injection, independent layers, animated effects or live rendered preview yet. CI pending.

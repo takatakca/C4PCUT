@@ -9,3 +9,7 @@
 - Foundation CI run 45920730879 completed successfully before these changes.
 - Added FFmpeg scene thumbnails, decoded audio peak envelopes, synchronized source-time playhead, ruler seeking and selection undo/redo.
 - Added synthetic tone/thumbnail integration test. New commit verification pending.
+
+## Scene editing milestone
+- Added validated in/out edits, monochrome/warm/contrast render presets, effects lane and scene reset. Undo/redo now covers selection and scene edits.
+- Source monitor does not yet preview rendered effects; output uses real FFmpeg filters. Added validation and rendered-pixel tests; CI pending.

@@ -45,12 +45,39 @@ def validate_selection(ids, clips):
         raise ValueError("Invalid clip selection")
     return [clips[i] for i in sorted(ids)]
 
+EFFECTS = {"none": "", "mono": ",hue=s=0", "warm": ",colorbalance=rs=.06:bs=-.05", "contrast": ",eq=contrast=1.15:saturation=1.10"}
+
+def validate_edits(ids, clips, edits):
+    selected = validate_selection(ids, clips)
+    if not isinstance(edits, dict) or len(edits) > MAX_CLIPS:
+        raise ValueError("Invalid edits")
+    known = {str(c["id"]): c for c in clips}
+    if any(k not in known for k in edits):
+        raise ValueError("Unknown scene")
+    validated = {}
+    for key, item in edits.items():
+        base = known[key]
+        if not isinstance(item, dict) or set(item) - {"start", "end", "effect"}:
+            raise ValueError("Invalid edit")
+        a, b = item.get("start", base["start"]), item.get("end", base["end"])
+        effect = item.get("effect", "none")
+        if type(a) not in (int, float) or type(b) not in (int, float):
+            raise ValueError("Invalid trim")
+        if not (math.isfinite(a) and math.isfinite(b) and base["start"] <= a < b <= base["end"]):
+            raise ValueError("Trim outside scene")
+        if b-a < min(.1, base["end"]-base["start"]) - 1e-9:
+            raise ValueError("Trim too short")
+        if not isinstance(effect, str) or effect not in EFFECTS:
+            raise ValueError("Unknown effect")
+        validated[key] = {**base, "start": a, "end": b, "effect": effect}
+    return [validated.get(str(c["id"]), c) for c in selected]
+
 def render(source, output, clips, audio):
     # Normalize timestamps and concatenate independently trimmed video/audio streams.
     filters, inputs = [], []
     for i, c in enumerate(clips):
         a, b = c["start"], c["end"]
-        filters.append(f"[0:v:0]trim=start={a}:end={b},setpts=PTS-STARTPTS,scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1[v{i}]")
+        filters.append(f"[0:v:0]trim=start={a}:end={b},setpts=PTS-STARTPTS,scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1{EFFECTS[c.get('effect', 'none')]}[v{i}]")
         inputs.append(f"[v{i}]")
         if audio:
             filters.append(f"[0:a:0]atrim=start={a}:end={b},asetpts=PTS-STARTPTS[a{i}]")

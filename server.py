@@ -107,7 +107,7 @@ class Handler(BaseHTTPRequestHandler):
                     item["thumbnail"] = f"/api/thumbnail/{job_id}/{item['id']}.jpg"
                 return self.reply({"visuals": visuals})
             if path == "/api/render":
-                selected = engine.validate_selection(payload["clips"], job["clips"])
+                selected = engine.validate_edits(payload["clips"], job["clips"], payload.get("edits", {}))
                 temp = job["folder"] / "rendering.mp4"
                 try:
                     engine.render(source, temp, selected, job["metadata"]["audio"])

@@ -20,3 +20,5 @@ FFmpeg integration tests are skipped when binaries are missing.
 See [project status](docs/PROJECT_STATUS.md) and [worklog](WORKLOG.md).
 
 Timeline enhancement: analysis also generates genuine scene thumbnails and source audio peak envelopes. Click the ruler to seek; undo/redo restores scene selection within the active session. Effects, captions and music tracks remain placeholders.
+
+Click a scene to select it, edit its in/out times (seconds) and choose an effect, then Apply. Undo/redo covers selection and edits. The monitor shows source footage; the exported MP4 reflects trims and effects.

@@ -1,3 +1,4 @@
+import subprocess
 import shutil
 import tempfile
 import unittest
@@ -37,6 +38,27 @@ class EngineTests(unittest.TestCase):
                 self.assertGreater(max(item["peaks"]), 0)
                 self.assertTrue(all(0 <= p <= 1 for p in item["peaks"]))
                 self.assertTrue((Path(d)/"visuals"/f"{item['id']}.jpg").read_bytes().startswith(b"\xff\xd8"))
+
+    def test_edit_validation(self):
+        clips = engine.segments(4, [2])
+        edits = {"1": {"start": 2.25, "end": 3.75, "effect": "mono"}}
+        self.assertEqual(engine.validate_edits([1], clips, edits)[0], {"id":1,"start":2.25,"end":3.75,"effect":"mono"})
+        for invalid in ({"1":{"start":1}}, {"1":{"end":5}}, {"1":{"effect":"movie=/etc/passwd"}}, {"1":{"start":True}}, {"1":{"start":float("nan")}}, {"2":{}}, {"1":{"start":3,"end":3.01}}):
+            with self.assertRaises(ValueError):
+                engine.validate_edits([1], clips, invalid)
+
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg required")
+    def test_render_trim_and_effect(self):
+        with tempfile.TemporaryDirectory() as d:
+            src,out=Path(d)/"source.mp4",Path(d)/"output.mp4"
+            engine.run(["ffmpeg","-nostdin","-y","-f","lavfi","-i","color=red:s=160x120:r=25:d=2","-f","lavfi","-i","sine=frequency=440:duration=2","-c:v","libx264","-c:a","aac","-shortest",str(src)])
+            info=engine.probe(src)
+            clips=engine.validate_edits([0],engine.segments(info["duration"],[]),{"0":{"start":.5,"end":1.5,"effect":"mono"}})
+            engine.render(src,out,clips,True)
+            self.assertAlmostEqual(engine.probe(out)["duration"],1,delta=.15)
+            pixel=subprocess.run(["ffmpeg","-v","error","-i",str(out),"-frames:v","1","-vf","scale=1:1","-f","rawvideo","-pix_fmt","rgb24","-"],check=True,capture_output=True).stdout
+            self.assertEqual(len(pixel),3)
+            self.assertLessEqual(max(pixel)-min(pixel),4)
 
 if __name__ == "__main__":
     unittest.main()
