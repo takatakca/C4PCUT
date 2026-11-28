@@ -380,6 +380,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply({"clips": job["clips"]})
             if path == "/api/scenes/restore":
                 return self.reply({"clips":projects.restore_scene_layout(job,payload["expected"],payload["clips"])})
+            if path == "/api/scenes/join":
+                result=engine.join_scenes(job["clips"],payload["selected"],payload.get("edits",{}),payload.get("order"),payload["scene"])
+                projects.validate_segments(result["clips"],job["metadata"]["duration"])
+                job["clips"]=result["clips"]
+                return self.reply(result)
             if path == "/api/scenes/split":
                 result=engine.split_scene(job["clips"],payload["selected"],payload.get("edits",{}),payload.get("order"),payload["scene"],payload["at"])
                 projects.validate_segments(result["clips"],job["metadata"]["duration"])

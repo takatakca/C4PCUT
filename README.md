@@ -115,3 +115,5 @@ Sequence transitions: hard cuts or dip through black/white between adjacent sele
 Manual scene splitting: select a retained scene and move the source playhead inside its trim, then split. Each part must retain at least 0.1s; 60-scene limit. Existing selection/order and per-scene effects are remapped, captions and soundtrack stay source-anchored. The split starts a new undo history and is persisted when saving the project. Scene-based transitions/effects can restart at the newly created boundary.
 
 Manual split history update: undo/redo now restores the server-side source partition through a bounded compare-and-swap endpoint, with refreshed thumbnails. The history is session-local and cleared on reopen or reanalysis. No general cross-device editing or version history.
+
+Join adjacent scenes when both are retained consecutively in source/output order, their trims touch and their effects match. Joining preserves retained duration, removes the internal transition, and may change scene-local effect timing. Undo/redo is server-backed; save to persist the layout.
