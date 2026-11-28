@@ -496,6 +496,21 @@ $("video").addEventListener("loadedmetadata",()=>{updateEffectPreview();updateBu
 $("preview-effects").addEventListener("change",updateEffectPreview);
 $("undo").addEventListener("click",()=>restore(history,future));
 $("redo").addEventListener("click",()=>restore(future,history));
+document.addEventListener("keydown",event=>{
+  if(event.defaultPrevented||event.repeat||event.isComposing||busy||accountRefreshing||accountInvalid||!job)return;
+  const target=event.target;
+  if(target instanceof Element&&(target.closest("input,textarea,select,button,[contenteditable]:not([contenteditable='false']),[role='textbox']")||target.isContentEditable))return;
+  const key=event.key.toLowerCase();
+  let id=null;
+  if((event.ctrlKey||event.metaKey)&&!event.altKey){
+    if(key==="z")id=event.shiftKey?"redo":"undo";
+    else if(key==="y"&&!event.shiftKey)id="redo";
+  }else if(!event.ctrlKey&&!event.metaKey&&!event.altKey&&!event.shiftKey){
+    if(key==="s")id="split-scene";
+    else if(key==="j")id="join-scenes";
+  }
+  if(id&&!$(id).disabled){event.preventDefault();$(id).click();}
+});
 $("ticks").addEventListener("click",e=>{if(!job)return;stopSequence();const b=$("ticks").getBoundingClientRect();$("video").currentTime=Math.max(0,Math.min(job.duration,(e.clientX-b.left)/b.width*job.duration));updatePlayhead();});
 window.addEventListener("resize",updatePlayhead);
 $("tracks").addEventListener("scroll",updatePlayhead);
