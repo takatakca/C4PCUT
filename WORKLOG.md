@@ -200,3 +200,9 @@
 - Added validated adjacent join, remapping IDs and retained order, private API/issuer route, UI, history and thumbnail refresh. Unit split/join roundtrip and rejection tests plus Chromium join/undo/redo scenario added. Exact CI pending. No production deployment or fees.
 
 - CI 46099140698: standard tests passed, Chromium timed out waiting for Join after reopen; no join request reached server. Replaced ambiguous center click on narrow scene cell with explicit keyboard focus/Enter after editor ready, and assertions for inspected scene and unchanged selection. Guard scene preview against busy/account refresh. Root cause hypothesized nested checkbox interaction; rerun required.
+
+## Keyboard shortcuts
+- PR #29 exact CI 46106852450 succeeded; merged at 203e2c7325ade4979e9b65afceee21c1297b7c53.
+- Added guarded keyboard shortcuts for undo/redo and split/join, visible hints and browser history/text-field isolation test. CI pending. No billing or deployment changes.
+
+- CI 46110350786: Python, Node and private Docker smoke succeeded; Chromium timed out on keyboard undo after redo. No restore request reached the backend. Test now waits for the undo control to re-enable after thumbnail refresh and explicitly focuses a timeline cell before each shortcut. Root cause is a suspected asynchronous UI/focus race; rerun required.

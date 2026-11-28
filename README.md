@@ -117,3 +117,5 @@ Manual scene splitting: select a retained scene and move the source playhead ins
 Manual split history update: undo/redo now restores the server-side source partition through a bounded compare-and-swap endpoint, with refreshed thumbnails. The history is session-local and cleared on reopen or reanalysis. No general cross-device editing or version history.
 
 Join adjacent scenes when both are retained consecutively in source/output order, their trims touch and their effects match. Joining preserves retained duration, removes the internal transition, and may change scene-local effect timing. Undo/redo is server-backed; save to persist the layout.
+
+Editor shortcuts outside text fields and buttons: Ctrl/Command+Z undo, Ctrl/Command+Shift+Z or Ctrl+Y redo, S split, J join. Split/join retain confirmation and server validation. Disabled actions are not invoked.

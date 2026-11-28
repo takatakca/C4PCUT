@@ -155,3 +155,8 @@
 - PR #27 and #28 passed CI and merged. Topology undo/redo replaces previous split history reset. Adjacent join implemented with strict touching trims, matching effects and consecutive source/output order; new CI pending. Multi-asset timeline, live integration, billing and production deployment remain open.
 
 - Join CI 46099140698: standard tests passed; browser join control remained disabled after scene selection. Explicit keyboard selection test and busy guard added; exact CI pending. No production change.
+
+## Keyboard shortcuts
+- PR #29 passed CI and merged. Keyboard shortcuts added with focus and authorization guards; new CI pending. Multi-asset editing and production integration remain open.
+
+- Keyboard shortcut CI: core and Docker tests passed; Chromium keyboard undo failed. Test readiness/focus correction committed; exact-head CI pending.
