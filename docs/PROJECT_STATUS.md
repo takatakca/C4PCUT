@@ -160,3 +160,8 @@
 - PR #29 passed CI and merged. Keyboard shortcuts added with focus and authorization guards; new CI pending. Multi-asset editing and production integration remain open.
 
 - Keyboard shortcut CI: core and Docker tests passed; Chromium keyboard undo failed. Test readiness/focus correction committed; exact-head CI pending.
+
+## Project media management
+- Added working asset inventory/removal with saved revision preservation, authorization and tests. CI pending. One optional asset per kind; multi-asset timeline remains open, as do live billing and deployment.
+
+- Shortcut PR #30 merged after successful CI; independent media PR #31 CI passed. Reconciled with latest main and extended browser removal/recovery tests; combined CI pending.

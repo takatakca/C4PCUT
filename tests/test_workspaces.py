@@ -60,6 +60,12 @@ class WorkspaceTests(unittest.TestCase):
                 for path in ("/api/export/","/api/captions/","/api/thumbnail/"):
                     self.assertEqual(request("beta",path+a+("/0.jpg" if "thumbnail" in path else ""))[0],404)
                 self.assertEqual(request("beta","/api/projects/save",{"id":a,"name":"Stolen"})[0],400)
+                self.assertEqual(request("beta","/api/media/list",{"id":a})[0],400)
+                self.assertEqual(request("beta","/api/media/remove",{"id":a,"kind":"logo"})[0],400)
+                self.assertEqual(request("alpha","/api/media/remove",{"id":a,"kind":"logo"},token=registry["beta"].token)[0],403)
+                self.assertEqual(request("alpha","/api/media/remove",{"id":a,"kind":"../source.media"})[0],400)
+                self.assertEqual(request("alpha","/api/media/list",{"id":a})[0],200)
+                self.assertEqual(request("alpha","/api/media/remove",{"id":a,"kind":"logo"})[0],200)
                 self.assertEqual(request("beta","/api/projects/open",{"id":a})[0],400)
                 self.assertEqual(request("beta","/api/projects/delete",{"id":a})[0],400)
                 original=engine.segments(4,[2]);replacement=engine.segments(4,[1,2])
