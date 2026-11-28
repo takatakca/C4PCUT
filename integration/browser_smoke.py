@@ -197,7 +197,12 @@ def run():
                     page.once("dialog",lambda dialog:dialog.accept())
                     page.locator("#open-project").click()
                     expect(page.locator("#summary")).to_contain_text("3 / 3",timeout=30000)
-                    page.locator("#clip-0").click()
+                    expect(page.locator("#save-project")).to_be_enabled(timeout=30000)
+                    # Explicitly focus the scene cell, not its nested Keep checkbox.
+                    page.locator("#clip-0").focus()
+                    page.locator("#clip-0").press("Enter")
+                    expect(page.locator("#selection")).to_contain_text("Scene 1")
+                    expect(page.locator("#summary")).to_contain_text("3 / 3")
                     expect(page.locator("#join-scenes")).to_be_enabled(timeout=30000)
                     page.once("dialog",lambda dialog:dialog.accept())
                     page.locator("#join-scenes").click()

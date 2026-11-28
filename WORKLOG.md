@@ -198,3 +198,5 @@
 ## Adjacent scene joining
 - PR #27 CI 46097505446 passed; PR #28 CI 46098134392 passed and merged at 4efa4b096ba6cf0541ab3c300d66ea7245740e69. Manual split undo/redo now server-backed.
 - Added validated adjacent join, remapping IDs and retained order, private API/issuer route, UI, history and thumbnail refresh. Unit split/join roundtrip and rejection tests plus Chromium join/undo/redo scenario added. Exact CI pending. No production deployment or fees.
+
+- CI 46099140698: standard tests passed, Chromium timed out waiting for Join after reopen; no join request reached server. Replaced ambiguous center click on narrow scene cell with explicit keyboard focus/Enter after editor ready, and assertions for inspected scene and unchanged selection. Guard scene preview against busy/account refresh. Root cause hypothesized nested checkbox interaction; rerun required.

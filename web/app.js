@@ -404,7 +404,7 @@ function refreshInspector(){
   $("trim-in").value=c.start;$("trim-out").value=c.end;$("effect").value=c.effect||"none";
   $("selection").textContent="Scene "+(base.id+1)+" · source preview";
 }
-function preview(clip){stopSequence();current=clip.id;$("video").currentTime=edited(clip).start;refreshInspector();drawTimeline();connect(3,$("clip-"+clip.id));}
+function preview(clip){if(busy||accountRefreshing||accountInvalid)return;stopSequence();current=clip.id;$("video").currentTime=edited(clip).start;refreshInspector();drawTimeline();connect(3,$("clip-"+clip.id));}
 $("apply-edit").addEventListener("click",()=>{
   const base=clips.find(c=>c.id===current);if(!base||busy)return;
   const start=$("trim-in").valueAsNumber,end=$("trim-out").valueAsNumber,effect=$("effect").value;
