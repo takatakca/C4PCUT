@@ -155,3 +155,6 @@
 - PR #27 and #28 passed CI and merged. Topology undo/redo replaces previous split history reset. Adjacent join implemented with strict touching trims, matching effects and consecutive source/output order; new CI pending. Multi-asset timeline, live integration, billing and production deployment remain open.
 
 - Join CI 46099140698: standard tests passed; browser join control remained disabled after scene selection. Explicit keyboard selection test and busy guard added; exact CI pending. No production change.
+
+## Project media management
+- Added working asset inventory/removal with saved revision preservation, authorization and tests. CI pending. One optional asset per kind; multi-asset timeline remains open, as do live billing and deployment.

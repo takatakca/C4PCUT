@@ -93,6 +93,28 @@ def validate_state(payload, clips, metadata, has_music, has_logo=False, pip_meta
             "source_gain":music.validate_gain(payload.get("source_gain",1)),
             "preset":preset,"framing":framing,"quality":quality}
 
+MEDIA_FILES={"music":("music.wav","music_analysis"),"logo":("logo.png",None),"pip":("pip.mp4","pip_meta")}
+
+def media_inventory(job):
+    folder=job["folder"]
+    result=[]
+    for kind,(name,_) in MEDIA_FILES.items():
+        path=folder/name
+        if path.is_file() and not path.is_symlink():
+            result.append({"kind":kind,"bytes":path.stat().st_size})
+    return result
+
+def remove_media(job,kind):
+    if not isinstance(kind,str) or kind not in MEDIA_FILES:
+        raise ValueError("Unknown removable media")
+    name,metadata=MEDIA_FILES[kind]
+    path=job["folder"]/name
+    if path.is_symlink():raise ValueError("Invalid media path")
+    path.unlink(missing_ok=True)
+    if metadata:job.pop(metadata,None)
+    # Only the working copy is removed; saved revision remains intact until save.
+    return media_inventory(job)
+
 def save(job, payload):
     folder=job["folder"]
     clips=validate_segments(job.get("clips",[]),job["metadata"]["duration"])

@@ -245,6 +245,28 @@ async function renderClip(c){
 }
 function clearDirector(){directorPlan=null;$("director-result").textContent="No pending plan";}
 function beatData(){return $("use-music").checked?musicData:sourceBeats;}
+function updateMediaControls(){
+  const allowed=!!job&&!busy&&!accountRefreshing&&!accountInvalid&&!!token;
+  $("media-refresh").disabled=!allowed;
+  $("remove-music").disabled=!allowed||!musicData;
+  $("remove-logo").disabled=!allowed||!logoURL;
+  $("remove-pip").disabled=!allowed||!pipMeta;
+  $("media-inventory").textContent=job?["Primary video",musicData?"music":null,logoURL?"logo":null,pipMeta?"secondary video":null].filter(Boolean).join(" · "):"No project loaded";
+}
+function showMediaInventory(items){
+  $("media-inventory").textContent=["Primary video",...items.map(x=>({music:"music",logo:"logo",pip:"secondary video"}[x.kind]+" ("+(x.bytes/1048576).toFixed(2)+" MiB)"))].join(" · ");
+}
+$("media-refresh").addEventListener("click",()=>action(async()=>{const result=await request("/api/media/list",{id:job.id});log("Project media: "+result.media.map(x=>x.kind+" "+x.bytes+" bytes").join(", "));}));
+for(const kind of ["music","logo","pip"]){$("remove-"+kind).addEventListener("click",()=>{
+  if(!job||busy||!window.confirm("Remove this working media? The last saved project retains its copy until you save again."))return;
+  action(async()=>{
+    const result=await request("/api/media/remove",{id:job.id,kind});
+    if(kind==="music"){clearMonitorMusic();musicData=null;musicName="";$("use-music").checked=false;musicStatus();clearDirector();clearClipper();}
+    if(kind==="logo")await resetLogo();
+    if(kind==="pip")await resetPip();
+    hideExports();drawTimeline();showMediaInventory(result.media);log("Removed working "+kind+"; save to persist removal");
+  });
+});}
 function resetMusic(){clearMonitorMusic();musicData=null;sourceBeats=null;musicName="";$("use-music").checked=false;$("music-gain").value=.35;$("source-gain").value=1;}
 function musicStatus(){const data=beatData();$("beat-info").textContent=data?data.beats.length+" detected onsets"+(data.estimated_bpm?" · ~"+data.estimated_bpm+" BPM estimate":""):"No beat analysis";}
 function snapshot(){return {clips:clips.map(c=>({...c})),current,selected:[...selected],order:selectedOrder(),edits:JSON.parse(JSON.stringify(edits)),cues:JSON.parse(JSON.stringify(cues)),titles:JSON.parse(JSON.stringify(titleItems)),transition:{...transitionSettings}};}
@@ -308,6 +330,7 @@ function step(index, done=false) {
   $("progress").value = index + Number(done);
 }
 function updateButtons() {
+  updateMediaControls();
   $("file").disabled = busy;
   $("preview-effects").disabled=!job||!clips.length;
   const plan=sequencePlan();

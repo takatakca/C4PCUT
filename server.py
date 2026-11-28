@@ -371,6 +371,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.jobs.pop(job_id,None)
                 return self.reply({"deleted":True})
             job = self.jobs[job_id]
+            if path == "/api/media/list":
+                return self.reply({"media":projects.media_inventory(job)})
+            if path == "/api/media/remove":
+                return self.reply({"media":projects.remove_media(job,payload.get("kind"))})
             if path == "/api/projects/save":
                 state=projects.save(job,payload)
                 return self.reply({"saved":True,"name":state["name"]})

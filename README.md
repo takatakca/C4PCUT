@@ -117,3 +117,5 @@ Manual scene splitting: select a retained scene and move the source playhead ins
 Manual split history update: undo/redo now restores the server-side source partition through a bounded compare-and-swap endpoint, with refreshed thumbnails. The history is session-local and cleared on reopen or reanalysis. No general cross-device editing or version history.
 
 Join adjacent scenes when both are retained consecutively in source/output order, their trims touch and their effects match. Joining preserves retained duration, removes the internal transition, and may change scene-local effect timing. Undo/redo is server-backed; save to persist the layout.
+
+Project media management: inventory lists working music/logo/secondary video; explicit remove actions leave the primary source and last saved revisions untouched until a new save. One asset of each kind remains the current limit. No general asset library yet.
