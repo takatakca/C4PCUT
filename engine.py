@@ -141,6 +141,34 @@ def validate_edits(ids, clips, edits, order=None):
         validated[key] = {**base, "start": a, "end": b, "effect": effect}
     return [validated.get(str(c["id"]), c) for c in selected]
 
+def split_scene(clips, ids, edits, order, scene, at):
+    """Split a retained scene inside its current trim, remapping all scene IDs.
+    Source coverage and the ordered retained duration are preserved.
+    """
+    if len(clips)>=MAX_CLIPS or type(scene) is not int or type(at) not in (int,float) or not math.isfinite(at):
+        raise ValueError("Invalid split or scene limit reached")
+    retained=validate_edits(ids,clips,edits,order)
+    all_edits=validate_edits(list(range(len(clips))),clips,edits)
+    chosen=next((c for c in retained if c["id"]==scene),None)
+    if chosen is None or at-chosen["start"]<.1-1e-9 or chosen["end"]-at<.1-1e-9:
+        raise ValueError("Split inside a selected trim, leaving at least 0.1 seconds on each side")
+    mapping={}
+    result=[]
+    next_edits={}
+    for base,edit in zip(clips,all_edits):
+        old=base["id"]
+        ranges=[(base["start"],at),(at,base["end"])] if old==scene else [(base["start"],base["end"])]
+        mapping[old]=[]
+        for a,b in ranges:
+            ident=len(result)
+            mapping[old].append(ident)
+            result.append({"id":ident,"start":a,"end":b})
+            if str(old) in edits or old==scene:
+                next_edits[str(ident)]={"start":max(a,edit["start"]),"end":min(b,edit["end"]),"effect":edit.get("effect","none")}
+    next_order=[new_id for c in retained for new_id in mapping[c["id"]]]
+    validate_edits(next_order,result,next_edits,next_order)
+    return {"clips":result,"selected":sorted(next_order),"order":next_order,"edits":next_edits,"current":mapping[scene][1]}
+
 EXPORT_FORMATS = {"original": None, "vertical": (720,1280), "square": (720,720), "landscape": (1280,720),
                   "vertical_hd": (1080,1920), "square_hd": (1080,1080), "landscape_hd": (1920,1080),
                   "landscape_qhd": (2560,1440), "vertical_qhd": (1440,2560),

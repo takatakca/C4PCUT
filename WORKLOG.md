@@ -186,3 +186,7 @@
 ## Duration-preserving sequence transitions
 - PR #25 CI 45962546513 succeeded and merged at 73b49fb5fbb3099ebab96530ba5df590b6d58ee3.
 - Added validated black/white dip transitions at output scene boundaries, short-scene clamping, render integration, project state, preview, undo/redo, real FFmpeg pixel/duration/audio tests and browser saved-settings checks. CI pending. No overlap/cross-dissolve, no production launch or fees.
+
+## Manual scene split
+- PR #26 CI 46017355965 succeeded; merged at 8509a6a0755c10dded3667e44bc6badcec47ba1d.
+- Added validated manual split at source playhead, renumbering scene IDs and remapping retained output order/trim/effect, scoped API and issuer route, thumbnail refresh, explicit undo history reset, project persistence and test coverage. New CI pending. No changes to billing, production or external services.
