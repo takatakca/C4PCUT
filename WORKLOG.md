@@ -204,3 +204,5 @@
 ## Keyboard shortcuts
 - PR #29 exact CI 46106852450 succeeded; merged at 203e2c7325ade4979e9b65afceee21c1297b7c53.
 - Added guarded keyboard shortcuts for undo/redo and split/join, visible hints and browser history/text-field isolation test. CI pending. No billing or deployment changes.
+
+- CI 46110350786: Python, Node and private Docker smoke succeeded; Chromium timed out on keyboard undo after redo. No restore request reached the backend. Test now waits for the undo control to re-enable after thumbnail refresh and explicitly focuses a timeline cell before each shortcut. Root cause is a suspected asynchronous UI/focus race; rerun required.

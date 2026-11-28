@@ -158,3 +158,5 @@
 
 ## Keyboard shortcuts
 - PR #29 passed CI and merged. Keyboard shortcuts added with focus and authorization guards; new CI pending. Multi-asset editing and production integration remain open.
+
+- Keyboard shortcut CI: core and Docker tests passed; Chromium keyboard undo failed. Test readiness/focus correction committed; exact-head CI pending.
