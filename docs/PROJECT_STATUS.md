@@ -144,3 +144,6 @@
 
 ## Sequence transitions
 - PR #25 passed CI and merged. Independent duration-preserving dip transitions implemented, with persistent settings and approximate preview. Tests pending. General multi-asset timeline, true cross-dissolve, live V1 billing/integration and production isolation/deployment remain outstanding.
+
+## Manual scene split
+- PR #26 passed CI and merged. Manual source-playhead split implemented with preservation of selected duration and output order, project save and tests pending. Splits start a new undo history; transitions and per-scene effects may restart. Multi-asset timeline, live TAKATAK entitlement/billing and isolated production deployment remain outstanding.
