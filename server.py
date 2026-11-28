@@ -11,6 +11,7 @@ import engine
 import captions
 import titles
 import logos
+import image_library
 import pip_video
 import transitions
 import music
@@ -371,6 +372,15 @@ class Handler(BaseHTTPRequestHandler):
                 self.jobs.pop(job_id,None)
                 return self.reply({"deleted":True})
             job = self.jobs[job_id]
+            if path == "/api/library/images/list":
+                return self.reply({"images":image_library.inventory(job)})
+            if path == "/api/library/images/archive":
+                return self.reply({"images":image_library.archive(job)})
+            if path == "/api/library/images/activate":
+                image_library.activate(job,payload.get("image_id"))
+                return self.reply({"logo_url":"/api/logo/"+job_id})
+            if path == "/api/library/images/delete":
+                return self.reply({"images":image_library.delete(job,payload.get("image_id"))})
             if path == "/api/media/list":
                 return self.reply({"media":projects.media_inventory(job)})
             if path == "/api/media/remove":

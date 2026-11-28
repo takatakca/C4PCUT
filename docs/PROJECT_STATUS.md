@@ -165,3 +165,6 @@
 - Added working asset inventory/removal with saved revision preservation, authorization and tests. CI pending. One optional asset per kind; multi-asset timeline remains open, as do live billing and deployment.
 
 - Shortcut PR #30 merged after successful CI; independent media PR #31 CI passed. Reconciled with latest main and extended browser removal/recovery tests; combined CI pending.
+
+## Project image library
+- PR #31 passed combined CI and merged. Multiple archived PNG assets with explicit activation/deletion implemented; exact CI pending. One active image per project, no simultaneous multi-image track yet. Production integration/billing/deployment remain outstanding.
