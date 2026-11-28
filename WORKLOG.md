@@ -194,3 +194,7 @@
 ## Scene topology undo/redo
 - PR #27 CI 46097505446 succeeded and merged at 026a224dab1a3d11b86e7cc9973a22c06ff3c753.
 - Added session history topology snapshots, scoped compare-and-swap restore endpoint with exact source partition validation, retained order/edits/captions/titles/transitions, refreshed visuals and cross-workspace/CSRF tests. Browser split/undo/redo/save/reopen scenario updated. Exact CI pending. History is not durable across sessions; no fees or production deployment.
+
+## Adjacent scene joining
+- PR #27 CI 46097505446 passed; PR #28 CI 46098134392 passed and merged at 4efa4b096ba6cf0541ab3c300d66ea7245740e69. Manual split undo/redo now server-backed.
+- Added validated adjacent join, remapping IDs and retained order, private API/issuer route, UI, history and thumbnail refresh. Unit split/join roundtrip and rejection tests plus Chromium join/undo/redo scenario added. Exact CI pending. No production deployment or fees.

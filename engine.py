@@ -169,6 +169,36 @@ def split_scene(clips, ids, edits, order, scene, at):
     validate_edits(next_order,result,next_edits,next_order)
     return {"clips":result,"selected":sorted(next_order),"order":next_order,"edits":next_edits,"current":mapping[scene][1]}
 
+def join_scenes(clips, ids, edits, order, scene):
+    """Join consecutive source and output scenes only if their retained trims touch."""
+    if type(scene) is not int or not 0<=scene<len(clips)-1:
+        raise ValueError("Invalid adjacent scene")
+    retained=validate_edits(ids,clips,edits,order)
+    all_edits=validate_edits(list(range(len(clips))),clips,edits)
+    ordered=[c["id"] for c in retained]
+    if scene not in ordered or ordered.index(scene)+1>=len(ordered) or ordered[ordered.index(scene)+1]!=scene+1:
+        raise ValueError("Scenes must be adjacent in source and output order")
+    left,right=all_edits[scene],all_edits[scene+1]
+    if left["end"]!=right["start"] or left.get("effect","none")!=right.get("effect","none"):
+        raise ValueError("Retained trims must touch and effects must match")
+    result=[];next_edits={};mapping={}
+    for old,base in enumerate(clips):
+        if old==scene+1:
+            mapping[old]=mapping[scene]
+            continue
+        ident=len(result);mapping[old]=ident
+        if old==scene:
+            result.append({"id":ident,"start":base["start"],"end":clips[old+1]["end"]})
+            next_edits[str(ident)]={"start":left["start"],"end":right["end"],"effect":left.get("effect","none")}
+        else:
+            result.append({**base,"id":ident})
+            if str(old) in edits:
+                edit=all_edits[old]
+                next_edits[str(ident)]={"start":edit["start"],"end":edit["end"],"effect":edit.get("effect","none")}
+    next_order=[mapping[old] for old in ordered if old!=scene+1]
+    validate_edits(next_order,result,next_edits,next_order)
+    return {"clips":result,"selected":sorted(next_order),"order":next_order,"edits":next_edits,"current":mapping[scene]}
+
 EXPORT_FORMATS = {"original": None, "vertical": (720,1280), "square": (720,720), "landscape": (1280,720),
                   "vertical_hd": (1080,1920), "square_hd": (1080,1080), "landscape_hd": (1920,1080),
                   "landscape_qhd": (2560,1440), "vertical_qhd": (1440,2560),

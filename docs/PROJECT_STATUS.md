@@ -150,3 +150,6 @@
 
 ## Scene topology undo/redo
 - PR #27 passed CI and merged. Manual splits now retain session undo/redo history through authenticated server-side layout restoration; tests pending. History remains session-only. Multi-asset timeline, production integration and deployment still open.
+
+## Adjacent scene joining
+- PR #27 and #28 passed CI and merged. Topology undo/redo replaces previous split history reset. Adjacent join implemented with strict touching trims, matching effects and consecutive source/output order; new CI pending. Multi-asset timeline, live integration, billing and production deployment remain open.

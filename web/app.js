@@ -316,6 +316,7 @@ function updateButtons() {
   if(!sequence)showSequencePosition(Math.min(Number($("sequence-position").value)||0,plan.total),plan.total);
   $("analyze").disabled = busy || !job;
   $("split-scene").disabled=busy||!job||!selected.has(current)||clips.length>=60;
+  $("join-scenes").disabled=busy||!job||!canJoinScenes();
   $("render").disabled = busy || !selected.size;
   for(const id of ["transition-mode","transition-seconds","apply-transition"])$(id).disabled=busy||selected.size<2;
   $("add-title").disabled=busy||!job||!selected.size||titleItems.length>=12;
@@ -409,6 +410,23 @@ $("apply-edit").addEventListener("click",()=>{
   const start=$("trim-in").valueAsNumber,end=$("trim-out").valueAsNumber,effect=$("effect").value;
   if(!Number.isFinite(start)||!Number.isFinite(end)||start<base.start||end>base.end||end<=start||end-start<Math.min(.1,base.end-base.start)-1e-9){log("Trim must stay within scene boundaries",true);return;}
   remember();edits[base.id]={start,end,effect};hideExports();drawTimeline();log("Applied scene "+(base.id+1)+" trim / "+effect);connect(3,$("clip-"+base.id));
+});
+function canJoinScenes(){
+  const order=selectedOrder(),i=order.indexOf(current),a=clips.find(c=>c.id===current),b=clips.find(c=>c.id===current+1);
+  return !!(a&&b&&i>=0&&order[i+1]===b.id&&edited(a).end===edited(b).start&&(edited(a).effect||"none")===(edited(b).effect||"none"));
+}
+$("join-scenes").addEventListener("click",()=>{
+  if(busy||!job||!canJoinScenes())return;
+  if(!window.confirm("Join these adjacent scenes? Their retained duration is unchanged, but the internal transition is removed and scene effects may restart. Undo is available."))return;
+  action(async()=>{
+    const previous=snapshot();
+    const result=await request("/api/scenes/join",{id:job.id,selected:[...selected],order:selectedOrder(),edits,scene:current});
+    history.push(previous);if(history.length>100)history.shift();future=[];
+    clips=result.clips;selected=new Set(result.selected);sceneOrder=result.order;edits=result.edits;current=result.current;
+    visuals.clear();clearDirector();clearClipper();hideExports();refreshInspector();drawTimeline();
+    try{const v=await request("/api/visuals",{id:job.id});visuals=new Map(v.visuals.map(x=>[x.id,x]));}catch(e){log("Join succeeded; visual extraction failed: "+e.message,true);}
+    drawTimeline();log("Scenes joined · "+clips.length+" source scenes · save project to retain changes");
+  });
 });
 $("split-scene").addEventListener("click",()=>{
   if(busy||!job||!selected.has(current))return;
@@ -648,7 +666,7 @@ function applyAccountControls(){
   const p=account?.capabilities;
   $("refresh-account").disabled=busy||accountRefreshing;
   if(!account||accountInvalid||accountRefreshing){
-    for(const id of ["file","analyze","split-scene","undo","redo","render","studio-pack","save-project","open-project","delete-project","transcribe","music-file","use-music","detect-beats","beat-cut","director-plan","director-apply"])$(id).disabled=true;
+    for(const id of ["file","analyze","split-scene","join-scenes","undo","redo","render","studio-pack","save-project","open-project","delete-project","transcribe","music-file","use-music","detect-beats","beat-cut","director-plan","director-apply"])$(id).disabled=true;
     return;
   }
   for(const option of $("export-preset").options)option.disabled=!PlanUI.preset(p,option.value,job);
