@@ -121,3 +121,5 @@ Join adjacent scenes when both are retained consecutively in source/output order
 Editor shortcuts outside text fields and buttons: Ctrl/Command+Z undo, Ctrl/Command+Shift+Z or Ctrl+Y redo, S split, J join. Split/join retain confirmation and server validation. Disabled actions are not invoked.
 
 Project media management: inventory lists working music/logo/secondary video; explicit remove actions leave the primary source and last saved revisions untouched until a new save. One asset of each kind remains the current limit. No general asset library yet.
+
+Project image library: archive the current normalized PNG logo, deduplicate by SHA-256, retain up to 8 images and 16 MiB total, activate an archived image as the working logo, or explicitly delete an archive. Archives persist independently of project saves and are deleted with the project. Activation/deletion does not modify existing saved logo revisions. One active logo only; not yet simultaneous image tracks.

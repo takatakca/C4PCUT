@@ -245,8 +245,30 @@ async function renderClip(c){
 }
 function clearDirector(){directorPlan=null;$("director-result").textContent="No pending plan";}
 function beatData(){return $("use-music").checked?musicData:sourceBeats;}
+let libraryJob=null,libraryImages=[];
+function installLibrary(items){
+  libraryImages=items;const list=$("library-images"),prior=list.value;list.replaceChildren(new Option(items.length?"Choose archived image":"No archived images",""));
+  for(const item of items)list.add(new Option(item.width+" × "+item.height+" · "+(item.bytes/1048576).toFixed(2)+" MiB · "+item.id.slice(0,8),item.id));
+  if(items.some(x=>x.id===prior))list.value=prior;else if(items.length)list.value=items[0].id;
+}
+$("library-images").addEventListener("change",updateMediaControls);
+$("library-refresh").addEventListener("click",()=>action(async()=>{const r=await request("/api/library/images/list",{id:job.id});installLibrary(r.images);log("Loaded "+r.images.length+" archived images");}));
+$("library-archive").addEventListener("click",()=>action(async()=>{const r=await request("/api/library/images/archive",{id:job.id});installLibrary(r.images);log("Current logo archived");}));
+$("library-activate").addEventListener("click",()=>{
+  const image_id=$("library-images").value;if(!image_id||!job||!window.confirm("Use this image as the working logo? The saved logo revision is unchanged until save."))return;
+  action(async()=>{const r=await request("/api/library/images/activate",{id:job.id,image_id});await resetLogo(r.logo_url,{enabled:true,position:$("logo-position").value});hideExports();log("Archived image activated");});
+});
+$("library-delete").addEventListener("click",()=>{
+  const image_id=$("library-images").value;if(!image_id||!job||!window.confirm("Permanently delete this archived image? Working and saved logos remain unchanged."))return;
+  action(async()=>{const r=await request("/api/library/images/delete",{id:job.id,image_id});installLibrary(r.images);log("Archived image deleted");});
+});
 function updateMediaControls(){
+  if(libraryJob!==(job?.id||null)){libraryJob=job?.id||null;installLibrary([]);}
   const allowed=!!job&&!busy&&!accountRefreshing&&!accountInvalid&&!!token;
+  $("library-refresh").disabled=!allowed;
+  $("library-archive").disabled=!allowed||!logoURL;
+  $("library-images").disabled=!allowed||!libraryImages.length;
+  for(const id of ["library-activate","library-delete"])$(id).disabled=!allowed||!$("library-images").value;
   $("media-refresh").disabled=!allowed;
   $("remove-music").disabled=!allowed||!musicData;
   $("remove-logo").disabled=!allowed||!logoURL;

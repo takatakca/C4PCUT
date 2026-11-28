@@ -212,3 +212,7 @@
 - Added scoped media inventory and removal for fixed optional working assets, UI confirmation, saved revision preservation, issuer allowlist, unit and cross-workspace tests. Exact CI pending. No billing/deployment changes.
 
 - PR #30 CI 46112861972 succeeded and merged at 8d4604bd253ea3456c4ec067d8054cd8f7f93d3f. Independent PR #31 CI 46112905343 succeeded; reconciled both parents, preserved keyboard changes, removed redundant transient inventory label update and extended Chromium smoke to verify removal, reopen recovery and save persistence. Combined CI pending.
+
+## Project image library
+- PR #31 combined CI 46132897972 passed and merged at 650af5b8e9c7a74cbc7ce3f9a97309c2ac6f425f.
+- Added project-local normalized PNG archive, content deduplication, bounded inventory, activation and deletion, scoped API/issuer routes and editor controls. Unit tests cover saved revision isolation and storage caps; workspace and Chromium tests added. CI pending. One active logo; no production or billing change.
