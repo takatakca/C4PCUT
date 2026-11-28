@@ -118,4 +118,6 @@ Manual split history update: undo/redo now restores the server-side source parti
 
 Join adjacent scenes when both are retained consecutively in source/output order, their trims touch and their effects match. Joining preserves retained duration, removes the internal transition, and may change scene-local effect timing. Undo/redo is server-backed; save to persist the layout.
 
+Editor shortcuts outside text fields and buttons: Ctrl/Command+Z undo, Ctrl/Command+Shift+Z or Ctrl+Y redo, S split, J join. Split/join retain confirmation and server validation. Disabled actions are not invoked.
+
 Project media management: inventory lists working music/logo/secondary video; explicit remove actions leave the primary source and last saved revisions untouched until a new save. One asset of each kind remains the current limit. No general asset library yet.

@@ -201,6 +201,14 @@
 
 - CI 46099140698: standard tests passed, Chromium timed out waiting for Join after reopen; no join request reached server. Replaced ambiguous center click on narrow scene cell with explicit keyboard focus/Enter after editor ready, and assertions for inspected scene and unchanged selection. Guard scene preview against busy/account refresh. Root cause hypothesized nested checkbox interaction; rerun required.
 
+## Keyboard shortcuts
+- PR #29 exact CI 46106852450 succeeded; merged at 203e2c7325ade4979e9b65afceee21c1297b7c53.
+- Added guarded keyboard shortcuts for undo/redo and split/join, visible hints and browser history/text-field isolation test. CI pending. No billing or deployment changes.
+
+- CI 46110350786: Python, Node and private Docker smoke succeeded; Chromium timed out on keyboard undo after redo. No restore request reached the backend. Test now waits for the undo control to re-enable after thumbnail refresh and explicitly focuses a timeline cell before each shortcut. Root cause is a suspected asynchronous UI/focus race; rerun required.
+
 ## Project media management
 - PR #29 green and merged at 203e2c7325ade4979e9b65afceee21c1297b7c53. Independent increment while shortcut PR #30 is corrected.
 - Added scoped media inventory and removal for fixed optional working assets, UI confirmation, saved revision preservation, issuer allowlist, unit and cross-workspace tests. Exact CI pending. No billing/deployment changes.
+
+- PR #30 CI 46112861972 succeeded and merged at 8d4604bd253ea3456c4ec067d8054cd8f7f93d3f. Independent PR #31 CI 46112905343 succeeded; reconciled both parents, preserved keyboard changes, removed redundant transient inventory label update and extended Chromium smoke to verify removal, reopen recovery and save persistence. Combined CI pending.
