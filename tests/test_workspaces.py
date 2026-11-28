@@ -62,6 +62,14 @@ class WorkspaceTests(unittest.TestCase):
                 self.assertEqual(request("beta","/api/projects/save",{"id":a,"name":"Stolen"})[0],400)
                 self.assertEqual(request("beta","/api/projects/open",{"id":a})[0],400)
                 self.assertEqual(request("beta","/api/projects/delete",{"id":a})[0],400)
+                original=engine.segments(4,[2]);replacement=engine.segments(4,[1,2])
+                layout={"id":a,"expected":original,"clips":replacement}
+                self.assertEqual(request("beta","/api/scenes/restore",layout)[0],400)
+                self.assertEqual(request("alpha","/api/scenes/restore",layout,token=registry["beta"].token)[0],403)
+                self.assertEqual(request("alpha","/api/scenes/restore",layout)[0],200)
+                self.assertEqual(request("alpha","/api/scenes/restore",layout)[0],400)
+                self.assertEqual(registry["alpha"].jobs[a]["clips"],replacement)
+                self.assertEqual(request("alpha","/api/scenes/restore",{"id":a,"expected":replacement,"clips":original})[0],200)
                 pack={"studio":"TAKATAKSTUDIO","version":1,"kind":"production_request_pack","project":{"title":"Alpha brief","brief":"Edit a video","audience":"Music fans","language":"en","clientId":"beta"},"characters":[],"jobs":[{"command":"not authorized"}]}
                 code,raw=request("alpha","/api/studio/import-pack",pack)
                 self.assertEqual(code,200)

@@ -39,3 +39,12 @@ class SceneSplitTests(unittest.TestCase):
         self.assertEqual(edits,{"0":{"start":.5,"end":1.5}})
         full=engine.segments(60,list(range(1,60)))
         with self.assertRaises(ValueError):engine.split_scene(full,[0],{},[0],0,.5)
+
+    def test_restore_layout_compare_and_swap(self):
+        old=engine.segments(4,[2]);new=engine.split_scene(old,[0,1],{},[0,1],0,1)["clips"]
+        job={"clips":new,"metadata":{"duration":4}}
+        self.assertEqual(projects.restore_scene_layout(job,new,old),old)
+        self.assertEqual(projects.restore_scene_layout(job,old,new),new)
+        for expected,replacement in [(old,old),(new,[]),(new,[{"id":0,"start":0,"end":3}]),(new,[{"id":0,"start":0,"end":1},{"id":1,"start":1.0000001,"end":4}])]:
+            with self.assertRaises(ValueError):projects.restore_scene_layout(job,expected,replacement)
+            self.assertEqual(job["clips"],new)

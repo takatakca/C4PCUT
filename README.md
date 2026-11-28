@@ -113,3 +113,5 @@ Picture-in-picture editor: one private silent secondary MP4 per project, corner/
 Sequence transitions: hard cuts or dip through black/white between adjacent selected scenes, adjustable 0.2–2s, shortened automatically for short scenes. The effect preserves output duration and audio/subtitle timing, is saved with the project and supports undo/redo. Approximate browser preview; applies to base video, not overlay layers. No overlapping cross-dissolve yet.
 
 Manual scene splitting: select a retained scene and move the source playhead inside its trim, then split. Each part must retain at least 0.1s; 60-scene limit. Existing selection/order and per-scene effects are remapped, captions and soundtrack stay source-anchored. The split starts a new undo history and is persisted when saving the project. Scene-based transitions/effects can restart at the newly created boundary.
+
+Manual split history update: undo/redo now restores the server-side source partition through a bounded compare-and-swap endpoint, with refreshed thumbnails. The history is session-local and cleared on reopen or reanalysis. No general cross-device editing or version history.

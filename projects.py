@@ -40,6 +40,21 @@ def validate_segments(clips, duration):
         raise ValueError("Incomplete scene coverage")
     return clips
 
+def restore_scene_layout(job, expected, replacement):
+    """Compare-and-swap a bounded full source partition within the current job."""
+    duration=job["metadata"]["duration"]
+    for layout in (expected,replacement):
+        if not layout:
+            raise ValueError("Cannot restore an empty scene layout")
+        validate_segments(layout,duration)
+        # Restored layouts must cover the exact original source without gaps.
+        if layout[0]["start"]!=0 or layout[-1]["end"]!=duration or any(a["end"]!=b["start"] for a,b in zip(layout,layout[1:])):
+            raise ValueError("Invalid scene coverage")
+    if job.get("clips")!=expected:
+        raise ValueError("Scene layout changed; reopen the saved project or analyze again")
+    job["clips"]=[dict(c) for c in replacement]
+    return job["clips"]
+
 def validate_state(payload, clips, metadata, has_music, has_logo=False, pip_meta=None):
     name=clean_name(payload.get("name"))
     selected=payload.get("selected",[])
