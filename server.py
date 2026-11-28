@@ -378,6 +378,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/analyze":
                 job["clips"] = engine.analyze(source, job["metadata"])
                 return self.reply({"clips": job["clips"]})
+            if path == "/api/scenes/restore":
+                return self.reply({"clips":projects.restore_scene_layout(job,payload["expected"],payload["clips"])})
             if path == "/api/scenes/split":
                 result=engine.split_scene(job["clips"],payload["selected"],payload.get("edits",{}),payload.get("order"),payload["scene"],payload["at"])
                 projects.validate_segments(result["clips"],job["metadata"]["duration"])

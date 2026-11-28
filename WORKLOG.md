@@ -190,3 +190,7 @@
 ## Manual scene split
 - PR #26 CI 46017355965 succeeded; merged at 8509a6a0755c10dded3667e44bc6badcec47ba1d.
 - Added validated manual split at source playhead, renumbering scene IDs and remapping retained output order/trim/effect, scoped API and issuer route, thumbnail refresh, explicit undo history reset, project persistence and test coverage. New CI pending. No changes to billing, production or external services.
+
+## Scene topology undo/redo
+- PR #27 CI 46097505446 succeeded and merged at 026a224dab1a3d11b86e7cc9973a22c06ff3c753.
+- Added session history topology snapshots, scoped compare-and-swap restore endpoint with exact source partition validation, retained order/edits/captions/titles/transitions, refreshed visuals and cross-workspace/CSRF tests. Browser split/undo/redo/save/reopen scenario updated. Exact CI pending. History is not durable across sessions; no fees or production deployment.

@@ -147,3 +147,6 @@
 
 ## Manual scene split
 - PR #26 passed CI and merged. Manual source-playhead split implemented with preservation of selected duration and output order, project save and tests pending. Splits start a new undo history; transitions and per-scene effects may restart. Multi-asset timeline, live TAKATAK entitlement/billing and isolated production deployment remain outstanding.
+
+## Scene topology undo/redo
+- PR #27 passed CI and merged. Manual splits now retain session undo/redo history through authenticated server-side layout restoration; tests pending. History remains session-only. Multi-asset timeline, production integration and deployment still open.
